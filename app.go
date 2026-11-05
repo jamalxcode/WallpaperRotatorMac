@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -328,12 +329,41 @@ func (a *App) SaveCurrent() {
 	if name == "" {
 		name = "wallpaper"
 	}
-	dst := filepath.Join(savedDir, name+filepath.Ext(cur.Path))
-	if err := copyFile(cur.Path, dst); err != nil {
-		log.Print("save: ", err)
-		return
+	dst, saved := saveTarget(savedDir, name, filepath.Ext(cur.Path), cur.Path)
+	if !saved {
+		if err := copyFile(cur.Path, dst); err != nil {
+			log.Print("save: ", err)
+			return
+		}
 	}
 	_ = exec.Command("open", "-R", dst).Start()
+}
+
+// saveTarget picks where to save src in dir without overwriting a different
+// picture with the same title ("name.jpg", then "name_2.jpg", ...). saved is
+// true when that exact picture is already there.
+func saveTarget(dir, name, ext, src string) (path string, saved bool) {
+	for i := 1; ; i++ {
+		path = filepath.Join(dir, name+ext)
+		if i > 1 {
+			path = filepath.Join(dir, fmt.Sprintf("%s_%d%s", name, i, ext))
+		}
+		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+			return path, false
+		}
+		if sameContents(src, path) {
+			return path, true
+		}
+	}
+}
+
+func sameContents(a, b string) bool {
+	x, err := os.ReadFile(a)
+	if err != nil {
+		return false
+	}
+	y, err := os.ReadFile(b)
+	return err == nil && bytes.Equal(x, y)
 }
 
 func (a *App) SetInterval(m int) {

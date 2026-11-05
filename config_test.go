@@ -139,3 +139,27 @@ func TestRotateLog(t *testing.T) {
 		t.Error("rotated log should be moved away")
 	}
 }
+
+func TestSaveTargetKeepsDifferentPictures(t *testing.T) {
+	dir := t.TempDir()
+	a, b := filepath.Join(t.TempDir(), "a.jpg"), filepath.Join(t.TempDir(), "b.jpg")
+	os.WriteFile(a, []byte("picture A"), 0o644)
+	os.WriteFile(b, []byte("picture B"), 0o644)
+
+	p, saved := saveTarget(dir, "Sunset", ".jpg", a)
+	if saved || filepath.Base(p) != "Sunset.jpg" {
+		t.Fatalf("first save = %s %v, want Sunset.jpg false", p, saved)
+	}
+	copyFile(a, p)
+	if p, saved = saveTarget(dir, "Sunset", ".jpg", a); !saved || filepath.Base(p) != "Sunset.jpg" {
+		t.Errorf("same picture again = %s %v, want Sunset.jpg true", p, saved)
+	}
+	p, saved = saveTarget(dir, "Sunset", ".jpg", b)
+	if saved || filepath.Base(p) != "Sunset_2.jpg" {
+		t.Fatalf("different picture, same title = %s %v, want Sunset_2.jpg false", p, saved)
+	}
+	copyFile(b, p)
+	if got, _ := os.ReadFile(filepath.Join(dir, "Sunset.jpg")); string(got) != "picture A" {
+		t.Error("first picture was overwritten")
+	}
+}
