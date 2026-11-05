@@ -69,6 +69,9 @@ func (Wildlife) Candidates(ctx context.Context) ([]Image, error) {
 		if err != nil {
 			return nil, err
 		}
+		for i := range imgs {
+			imgs[i].Kind = KindNature
+		}
 		out = append(out, imgs...)
 		if len(out) > 0 {
 			break

@@ -2,128 +2,147 @@
 
 <h1 align="center">Wallpaper Rotator for Mac</h1>
 
-A tiny macOS menu-bar app, written in Go, that changes your desktop wallpaper every few
-minutes with **public-domain** pictures: nebulae and Earth from orbit, landscape paintings
-from museum collections, and Wikimedia Commons' best photos. It's family-friendly by design
-and needs no accounts or API keys.
+<p align="center">
+A tiny menu-bar app that changes your desktop wallpaper every few minutes with
+<b>public-domain</b> pictures: nebulae and Earth from orbit, wildlife and national parks,
+landscape paintings from museum collections, and optionally art from DeviantArt.
+</p>
 
-## Features
-- 🖼 Menu-bar icon only, with no Dock icon.
-- ⚙️ A **Settings window** that opens on first launch, whenever you open the app again
-  (Finder, Launchpad, Spotlight), or from the menu's **Settings…**.
-- ⏱ Changes every 4 minutes by default (1, 4, 10, 30 or 60 minutes available).
-- 🌍 Five public-domain / CC0 sources that you can switch on and off individually, plus
-  optional DeviantArt art (with your own free API keys).
-- 🖥 Covers every display. When you switch to another desktop (Space), the latest picture
-  is applied there too.
-- 🔁 Doesn't repeat pictures (it remembers the last 2,000).
-- 💾 Saves pictures you like to `~/Pictures/Wallpapers`, and links to each picture's
-  source page for credit and license.
+<p align="center">
+<a href="https://github.com/jamalxcode/WallpaperRotatorMac/actions/workflows/ci.yml"><img src="https://github.com/jamalxcode/WallpaperRotatorMac/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+<a href="https://github.com/jamalxcode/WallpaperRotatorMac/releases/latest"><img src="https://img.shields.io/github/v/release/jamalxcode/WallpaperRotatorMac" alt="Latest release"></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+</p>
+
+## Install
+
+**Download:** grab `WallpaperRotator-x.y.z.zip` from the
+[latest release](https://github.com/jamalxcode/WallpaperRotatorMac/releases/latest), unzip it, and
+drag **WallpaperRotator.app** to Applications. It's a universal app (Apple silicon and Intel) and
+needs macOS 13 or later.
+
+The app isn't notarized by Apple (that needs a paid developer account), so the first time you open
+it macOS blocks it. Go to **System Settings → Privacy & Security**, scroll down, and click
+**Open Anyway**.
+
+**Or build it yourself:** you need [Go](https://go.dev/dl/) 1.22+ and the Xcode Command Line Tools
+(`xcode-select --install`).
+```bash
+git clone https://github.com/jamalxcode/WallpaperRotatorMac.git
+cd WallpaperRotatorMac
+make install    # builds WallpaperRotator.app, copies it to /Applications, opens it
+```
+
+## Using it
+The **Settings window** opens on first launch, and again whenever you open the app while it's
+running (Finder, Launchpad, Spotlight) or choose **Settings…** from the menu-bar icon.
+
+- A preview of the current picture with its title and credit
+- **◀ Previous**, **Next ▶**, and **Never Show Again** (hides that picture forever and moves on)
+- **Open Image Page** (source and license) and **Save to Pictures** (`~/Pictures/Wallpapers`)
+- **Change every** 1, 4, 10, 30 or 60 minutes
+- A **slider for each source** from Off to Very often
+- **Pause**, **Start at login**, and **Keep changing on Low Power Mode and phone hotspots**
+- ⌘W closes the window, ⌘Q quits, and copy and paste work in the text fields
+
+The menu-bar icon has the same main actions.
+
+> **Can't see the menu-bar icon?** On MacBooks with a notch, macOS hides icons that don't fit.
+> Open the app again to get the Settings window, or ⌘-drag other icons off the menu bar.
+
+### Saves battery and data
+- **Doesn't download while you're away.** Changes are skipped while the screen is locked or the
+  display is asleep, and it catches up once when you come back.
+- **Pauses on Low Power Mode, phone hotspots and Low Data Mode** (you can turn this off).
+- **Checks NASA image sizes first.** It reads the first few KB of each image and only downloads the
+  whole file if it's wallpaper-shaped.
+- **Works offline.** With no internet it rotates through recent pictures and your saved favourites.
+- Each source's search results are cached and used up one at a time, so every API is queried rarely.
+  A source that fails is paused for 15 minutes, or for 2 hours if it reports a rate limit.
 
 ## Sources
 | Source | What you get | License |
 |---|---|---|
 | [NASA Image Library](https://images.nasa.gov) | Nebulae, galaxies, launches, auroras, Earth from orbit | Public domain |
-| **Wildlife & Nature**: [U.S. Fish & Wildlife Service](https://www.fws.gov), [National Park Service](https://www.nps.gov), [NOAA](https://www.noaa.gov) photos via Wikimedia Commons | Wolves, puffins, whales, coral reefs, lightning, auroras, geysers, national parks | Public domain (US federal works, `PD-USGov-*` tagged) |
-| [Wikimedia Commons Featured Pictures](https://commons.wikimedia.org/wiki/Commons:Featured_pictures) | Award-winning photos of nature, cities, animals | Only Public domain / CC0 files are used |
-| [Cleveland Museum of Art Open Access](https://openaccess-api.clevelandart.org) | Landscape and seascape paintings, prints, early photography | CC0 |
-| [Smithsonian Open Access](https://www.si.edu/openaccess) (American Art Museum) | Hudson River School, the American West | CC0 |
+| **Wildlife & Nature**: [US Fish & Wildlife](https://www.fws.gov), [National Park Service](https://www.nps.gov), [NOAA](https://www.noaa.gov) via Wikimedia Commons | Wolves, puffins, whales, coral reefs, lightning, geysers | Public domain (`PD-USGov-*`) |
+| [Wikimedia Commons Featured Pictures](https://commons.wikimedia.org/wiki/Commons:Featured_pictures) | Award-winning photos of nature, cities, animals | Only Public domain / CC0 files |
+| [Cleveland Museum of Art](https://openaccess-api.clevelandart.org) | Landscape and seascape paintings, prints, early photos | CC0 |
+| [Smithsonian American Art Museum](https://www.si.edu/openaccess) | Hudson River School, the American West | CC0 |
+| [DeviantArt](https://www.deviantart.com) *(optional)* | Fantasy landscapes, space art, concept art, pixel art | © the artists, credited |
+
+The Smithsonian uses the shared `DEMO_KEY` (about 50 requests a day). For more, add a free
+[api.data.gov](https://api.data.gov/signup) key to `config.json` as `"smithsonian_api_key"`.
 
 ### Optional: DeviantArt
-DeviantArt art **belongs to its artists and is not public domain**, so this source is off until
-you connect it and always credits the artist. It browses scenic tags (wallpaper, landscape,
-space art, concept art, cyberpunk, pixel art…). Mature content is excluded, and by default titles
-mentioning AI tools are skipped.
+DeviantArt art **belongs to its artists and is not public domain**, so this source is off until you
+connect it and always credits the artist. Mature content is excluded, and by default titles naming
+AI tools are skipped.
 
-To connect it, register your own free app:
 1. Sign in at https://www.deviantart.com/developers and click **Register Application**.
-2. Fill in a title, and as the **OAuth2 Redirect URI** any `https` URL that isn't on
-   deviantart.com (e.g. this repo's URL; it isn't used). Set **Client type** to **Confidential**.
-   DeviantArt publishes the app as a post on your profile. That's normal, so don't delete it.
+2. Enter a title, and as the **OAuth2 Redirect URI** any `https` URL that isn't on deviantart.com
+   (it isn't used). Set **Client type** to **Confidential**. DeviantArt publishes the app as a post
+   on your profile. That's normal, so don't delete it.
 3. Copy the **client_id** and **client_secret** from https://www.deviantart.com/studio/apps.
-4. Paste them into the **DeviantArt** section of the Settings window and click **Connect**.
+4. Paste them into the **DeviantArt** section of Settings and click **Connect**.
 
-The app uses OAuth 2.0 *client credentials*, so there's no browser sign-in. Keys are stored only in
-your local `config.json` (readable only by you) and never in this repo.
+It uses OAuth 2.0 *client credentials*, so there's no browser sign-in. The secret is stored in your
+**macOS Keychain**, never in a file or in this repo.
 
-Search results are cached and used up one at a time, so each API is queried rarely. A source
-that fails is skipped for 15 minutes, or for 2 hours if it reports a rate limit.
+## Keeping it family-friendly
+1. **Safe sources and searches.** NASA, US-government nature photos, *featured* Commons photos, and
+   museum searches limited to scenery.
+2. **Word filters** on titles, descriptions, keywords and categories ([`filter.go`](filter.go)). Art
+   gets an extra list (Venus, nymphs, bathers…), and dull or grim photos (maps, documents, specimens,
+   stranded animals) are skipped.
+3. **On-device image check.** Apple's Vision framework looks at every picture before it's shown and
+   skips swimwear, skulls, and pictures where people fill much of the frame. Space photos may show
+   astronauts. Nothing leaves your Mac.
+4. **Never Show Again** for anything that still slips through.
 
-The Smithsonian uses the shared `DEMO_KEY` (about 50 requests a day). For more, get a free key at
-https://api.data.gov/signup and add it to the config file:
-```json
-"smithsonian_api_key": "YOUR_KEY"
-```
-
-## Keeping it safe
-1. **Safe sources.** NASA, *featured* Commons photos, and museum searches limited to scenery
-   (sea, mountains, sunsets…).
-2. **Blocklist.** Titles, descriptions, keywords and categories are checked against a list of
-   nudity, gore and medical terms ([`filter.go`](filter.go)). Art sources also get an extra list
-   (Venus, nymphs, bathers…).
-3. **Shape check.** Only landscape images at least 1920px wide are used.
-
-No filter is perfect. If something slips through, add the word to `filter.go`, or keep only
-NASA switched on.
-
-## Install
-Requires macOS 12+, [Go](https://go.dev/dl/) 1.22+ and the Xcode Command Line Tools
-(`xcode-select --install`).
-
-```bash
-git clone https://github.com/jamalxcode/WallpaperRotatorMac.git
-cd WallpaperRotatorMac
-make install    # builds WallpaperChanger.app, copies it to /Applications, launches it
-```
-
-To start it automatically, use the menu's **Start at Login**, or go to System Settings →
-General → Login Items → **+** → WallpaperChanger.
-
-> **Can't see the icon?** On MacBooks with a notch, macOS hides menu-bar icons that don't
-> fit. Just open the app again to get the Settings window, or remove a few other icons
-> (⌘-drag them off) to make room.
-
-### Other commands
-```bash
-make run                                       # build and run from the project folder
-make once                                      # change the wallpaper once, no menu bar
-go run . --once --dry --source Cleveland       # test one source without changing the wallpaper
-```
-
-## Settings
-Open the app again (from Finder, Launchpad or Spotlight) to bring up the Settings window. It's
-handy when the menu-bar icon is hidden. It shows the current picture and its credit, and has:
-**Next Wallpaper**, **Open Image Page**, **Save to Pictures**, the change interval, the picture
-sources, **Pause** and **Start at login**.
-
-The menu-bar icon has the same options, plus **Settings…** to open the window. Changes made in
-one place show up in the other.
+No filter is perfect. You can also turn every source down except NASA and Wildlife.
 
 ## Files
 | What | Where |
 |---|---|
-| Settings | `~/Library/Application Support/WallpaperChanger/config.json` |
-| Image cache (last 8) | `~/Library/Application Support/WallpaperChanger/images/` |
-| Log | `~/Library/Logs/WallpaperChanger.log` |
-| Login item | `~/Library/LaunchAgents/com.yoda.wallpaperchanger.plist` |
+| Settings | `~/Library/Application Support/WallpaperRotator/config.json` (readable only by you) |
+| Recent pictures (last ~30) and history | `~/Library/Application Support/WallpaperRotator/` |
+| Log (capped at 2 MB) | `~/Library/Logs/WallpaperRotator.log` |
+| DeviantArt secret | macOS Keychain, item `com.jamalxcode.wallpaperrotator` |
 
-## How it works
+Upgrading from the old "Wallpaper Changer" moves your settings, history and DeviantArt secret over
+automatically.
+
+## Development
+```bash
+make test                                       # go vet + unit tests
+make run                                        # build and run from the project folder
+make release                                    # universal app + zip in build/
+go run . --once --dry --source Wildlife         # fetch one picture without setting it
+go run . --check some.jpg                       # run the on-device image check on a file
+```
+GitHub Actions runs the tests and a universal build on every push. Pushing a tag like `v1.2.0`
+publishes a release with the zipped app.
+
 | File | Role |
 |---|---|
-| `main.go` | Menu bar ([fyne.io/systray](https://github.com/fyne-io/systray)), timer, actions shared by menu and window |
-| `settings_darwin.m/.h/.go` | Native Cocoa Settings window and the "app opened again" handling |
-| `sources.go`, `sources_wildlife.go`, `sources_museums.go`, `sources_deviantart.go` | API clients for each source (DeviantArt uses OAuth client credentials) |
-| `fetch.go` | Per-source candidate cache, back-off, download and size checks |
-| `filter.go` | Content blocklists |
-| `wallpaper_darwin.go` | Sets the wallpaper through `NSWorkspace` (cgo / Objective-C) and re-applies it on Space switches |
-| `store.go`, `login.go`, `icon.go` | Settings, history, login item, generated menu-bar icon |
-| `assets/icon.png` | 1024px app icon; `make` turns it into `AppIcon.icns` with `sips` + `iconutil` |
+| `main.go` | Startup, command-line modes, single-instance handling |
+| `app.go` | App state and every action (shared by menu and window), pausing, offline mode |
+| `menu.go` | Menu-bar icon ([fyne.io/systray](https://github.com/fyne-io/systray)) |
+| `fetch.go` | Weighted source choice, per-source cache and back-off, size probe, downloads, image-check policy |
+| `config.go` | Settings, migration, history, seen and banned lists, cache and log housekeeping |
+| `sources*.go` | One client per picture source |
+| `filter.go` | Word filters |
+| `platform_darwin.m/.h/.go` | macOS APIs: wallpaper, Spaces, lock/sleep/power/network monitor, login item (`SMAppService`), Keychain, Vision |
+| `settings_darwin.m/.h/.go` | Native Settings window |
+| `assets/icon.png` | App icon (`make` builds `AppIcon.icns` from it) |
 
 ## Known limitations
-- macOS only lets apps set the wallpaper of the **current** Space. Other Spaces get the new
-  picture when you switch to them.
-- Full-screen app Spaces have no wallpaper, so nothing changes there.
+- macOS only lets apps set the wallpaper of the **current** Space. Other Spaces get the new picture
+  when you switch to them.
+- Full-screen app Spaces have no wallpaper.
+- Builds are ad-hoc signed, so after each update macOS may ask once whether the app can read its
+  Keychain item (choose **Always Allow**).
 
 ## License
-[MIT](LICENSE). The pictures themselves belong to their sources: public domain / CC0, except
-DeviantArt art, which belongs to its artists. Use **Open Image Page** for each picture's credit.
+[MIT](LICENSE). The pictures belong to their sources: public domain or CC0, except DeviantArt art,
+which belongs to its artists. Use **Open Image Page** for each picture's credit.

@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-const userAgent = "WallpaperChanger/1.0 (personal macOS desktop wallpaper app)"
+const userAgent = "WallpaperRotator/1.1 (macOS desktop wallpaper app; +https://github.com/jamalxcode/WallpaperRotatorMac)"
 
 var httpClient = &http.Client{Timeout: 90 * time.Second}
 
@@ -23,9 +23,18 @@ type Image struct {
 	Credit  string
 	PageURL string
 	Source  string
+	Kind    string // KindSpace, KindNature, KindPhoto or KindArt (affects safety checks)
+	Probe   bool   // check size with a partial download first (source gives no dimensions)
 	// urls returns download URLs in order of preference (may need a network call).
 	urls func(ctx context.Context) ([]string, error)
 }
+
+const (
+	KindSpace  = "space"
+	KindNature = "nature"
+	KindPhoto  = "photo"
+	KindArt    = "art"
+)
 
 type Source interface {
 	Name() string
@@ -73,7 +82,7 @@ var nasaTopics = []string{
 }
 
 // Things that make dull wallpapers (people at events, lab hardware, documents).
-var nasaBoring = regexp.MustCompile(`(?i)\b(meetings?|town hall|conference|ceremony|briefing|press|interview|speaks?|speech|speaker|visits?|tour|signing|award\w*|portrait|headshot|office|mock-?up|training|class(room)?|students?|employees?|workers?|technicians?|engineers?|inspect\w*|team|group photo|logo|diagram|chart|graph|experiments?|equipment|hardware|assembly|clean ?room|installation|test(ing|s)?|lab(oratory)?|exhibit\w*|museum|reception|panel|workshop|celebrat\w*|officials?|administrator)\b`)
+var nasaBoring = regexp.MustCompile(`(?i)\b(maps?|meetings?|town hall|conference|ceremony|briefing|press|interview|speaks?|speech|speaker|visits?|tour|signing|award\w*|portrait|headshot|office|mock-?up|training|class(room)?|students?|employees?|workers?|technicians?|engineers?|inspect\w*|team|group photo|logo|diagram|chart|graph|experiments?|equipment|hardware|assembly|clean ?room|installation|test(ing|s)?|lab(oratory)?|exhibit\w*|museum|reception|panel|workshop|celebrat\w*|officials?|administrator)\b`)
 
 func (NASA) Candidates(ctx context.Context) ([]Image, error) {
 	topic := nasaTopics[rand.IntN(len(nasaTopics))]
@@ -127,6 +136,8 @@ func (NASA) Candidates(ctx context.Context) ([]Image, error) {
 				Credit:  credit,
 				PageURL: "https://images.nasa.gov/details/" + url.PathEscape(id),
 				Source:  "NASA",
+				Kind:    KindSpace,
+				Probe:   true,
 				urls:    func(ctx context.Context) ([]string, error) { return nasaAssetURLs(ctx, id) },
 			})
 		}
@@ -198,14 +209,14 @@ func wikimediaBatch(ctx context.Context) ([]Image, error) {
 		"gcmsort":            {"sortkey"},
 		"gcmstarthexsortkey": {hex},
 	}
-	return commonsQuery(ctx, q, "Wikimedia Commons", func(texts ...string) bool {
-		return isBlocked(texts...) || isBlockedArt(texts...)
-	})
+	return commonsQuery(ctx, q, "Wikimedia Commons", isBlocked)
 }
 
 // commonsQuery runs a Commons API generator query (q supplies the generator
 // params) and turns the results into vetted, public-domain wallpaper candidates.
 // reject is applied to the file name, title and categories.
+var artCategory = regexp.MustCompile(`(?i)\b(paintings?|drawings?|sculptures?|engravings?|prints?|frescos?|artworks?|illustrations?|lithographs?|etchings?|watercolou?rs?)\b`)
+
 func commonsQuery(ctx context.Context, q url.Values, source string, reject func(...string) bool) ([]Image, error) {
 	for k, v := range map[string]string{
 		"action":              "query",
@@ -272,7 +283,12 @@ func commonsQuery(ctx context.Context, q url.Values, source string, reject func(
 		}
 		desc := stripHTML(ii.Ext["ImageDescription"].Value)
 		title = cleanTitle(title, desc)
-		if reject(p.Title, title, desc, strings.Join(cats, " | ")) {
+		catText := strings.Join(cats, " | ")
+		kind := KindPhoto
+		if artCategory.MatchString(catText) {
+			kind = KindArt // paintings etc. also get the art-specific word list
+		}
+		if reject(p.Title, title, desc, catText) || (kind == KindArt && isBlockedArt(p.Title, title, catText)) {
 			continue
 		}
 		credit := stripHTML(ii.Ext["Artist"].Value)
@@ -290,6 +306,7 @@ func commonsQuery(ctx context.Context, q url.Values, source string, reject func(
 			Credit:  credit,
 			PageURL: ii.DescriptionURL,
 			Source:  source,
+			Kind:    kind,
 			urls:    func(context.Context) ([]string, error) { return urls, nil },
 		})
 	}

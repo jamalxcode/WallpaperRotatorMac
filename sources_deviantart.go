@@ -159,6 +159,7 @@ func (d DeviantArt) Candidates(ctx context.Context) ([]Image, error) {
 				Credit:  "by " + dv.Author.Username,
 				PageURL: dv.URL,
 				Source:  "DeviantArt",
+				Kind:    KindArt,
 				urls:    func(context.Context) ([]string, error) { return []string{src}, nil },
 			})
 		}

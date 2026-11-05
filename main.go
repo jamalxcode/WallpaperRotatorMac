@@ -1,3 +1,5 @@
+// Wallpaper Rotator: a macOS menu-bar app that changes the desktop wallpaper
+// every few minutes with public-domain pictures (and optionally DeviantArt).
 package main
 
 import (
@@ -7,83 +9,39 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"syscall"
-	"time"
 
 	"fyne.io/systray"
 )
 
-var allSources []Source
-
-var sourceLabels = map[string]string{
-	"NASA":        "NASA (space & Earth)",
-	"Wildlife":    "Wildlife & Nature (US Fish & Wildlife, Parks, NOAA)",
-	"Wikimedia":   "Wikimedia Commons (featured photos)",
-	"Cleveland":   "Cleveland Museum of Art (paintings & prints)",
-	"Smithsonian": "Smithsonian American Art (landscapes)",
-	"DeviantArt":  "DeviantArt (artists' work, needs your keys)",
-}
-
-var intervals = []int{1, 4, 10, 30, 60}
-
-type App struct {
-	mu      sync.Mutex
-	cfg     Config
-	seen    *Seen
-	current Image
-	curPath string
-	busy    atomic.Bool
-	reset   chan struct{}
-
-	mInfo, mCredit, mNext, mPause, mOpen, mSave, mLogin *systray.MenuItem
-	mIntervals                                          map[int]*systray.MenuItem
-	mSources                                            map[string]*systray.MenuItem
-}
-
 func main() {
 	once := flag.Bool("once", false, "change the wallpaper once and exit (no menu bar icon)")
 	dry := flag.Bool("dry", false, "with --once: download only, don't set the wallpaper")
-	only := flag.String("source", "", "with --once: use only this source (NASA, Wikimedia, Cleveland, Smithsonian)")
+	only := flag.String("source", "", "with --once: use only this source (NASA, Wildlife, Wikimedia, Cleveland, Smithsonian, DeviantArt)")
+	checkFile := flag.String("check", "", "run the on-device image check on a file and print the result")
 	flag.Parse()
 
+	migrateLegacy()
 	_ = os.MkdirAll(cacheDir, 0o755)
-	logPath := filepath.Join(must(os.UserHomeDir()), "Library", "Logs", "WallpaperChanger.log")
+	rotateLog(logPath, 2<<20)
 	if lf, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
 		log.SetOutput(io.MultiWriter(os.Stderr, lf))
 	}
 
-	a := &App{cfg: loadConfig(), seen: loadSeen(), reset: make(chan struct{}, 1)}
-	allSources = []Source{NASA{}, Wildlife{}, Wikimedia{}, ClevelandArt{}, Smithsonian{Key: a.cfg.SmithsonianKey},
-		DeviantArt{creds: func() (string, string, bool) {
-			a.mu.Lock()
-			defer a.mu.Unlock()
-			return a.cfg.DeviantArtClientID, a.cfg.DeviantArtClientSecret, !a.cfg.DeviantArtAllowAI
-		}}}
+	if *checkFile != "" {
+		r, ok := visionCheck(*checkFile)
+		fmt.Printf("ran=%v people=%.0f%% swimsuit=%.2f skull=%.2f\n", ok, r.HumanArea*100, r.Swimsuit, r.Skull)
+		for _, kind := range []string{KindSpace, KindNature, KindArt} {
+			fmt.Printf("  as %-6s → %v\n", kind, orOK(visionVerdict(kind, r)))
+		}
+		return
+	}
 
+	a := NewApp()
 	if *once {
-		srcs := a.enabledSources()
-		if *only != "" {
-			srcs = nil
-			for _, s := range allSources {
-				if strings.EqualFold(s.Name(), *only) {
-					srcs = append(srcs, s)
-				}
-			}
-		}
-		img, path, err := fetchWallpaper(context.Background(), srcs, a.seen)
-		if err == nil && !*dry {
-			err = setWallpaper(path)
-		}
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
-		}
-		fmt.Printf("%s\n  %s · %s\n  %s\n  %s\n", img.Title, img.Credit, img.Source, img.PageURL, path)
+		runOnce(a, *only, *dry)
 		return
 	}
 
@@ -99,391 +57,61 @@ func main() {
 	systray.Run(a.onReady, func() {})
 }
 
-func (a *App) enabledSources() []Source {
-	var out []Source
-	for _, s := range allSources {
-		if a.cfg.Sources[s.Name()] {
-			out = append(out, s)
-		}
-	}
-	return out
-}
-
-func intervalLabel(m int) string {
-	switch m {
-	case 1:
-		return "1 minute"
-	case 60:
-		return "1 hour"
-	}
-	return fmt.Sprintf("%d minutes", m)
-}
-
 func (a *App) onReady() {
-	systray.SetTemplateIcon(menuIcon(), menuIcon())
-	systray.SetTooltip("Wallpaper Changer")
-
-	a.mInfo = systray.AddMenuItem("Starting…", "")
-	a.mInfo.Disable()
-	a.mCredit = systray.AddMenuItem("", "")
-	a.mCredit.Disable()
-	systray.AddSeparator()
-	a.mNext = systray.AddMenuItem("Next Wallpaper", "Change now")
-	a.mPause = systray.AddMenuItem("Pause", "Stop changing automatically")
-	a.mOpen = systray.AddMenuItem("Open Image Page", "See the source and license")
-	a.mSave = systray.AddMenuItem("Save to Pictures", "Copy to ~/Pictures/Wallpapers")
-	systray.AddSeparator()
-
-	mEvery := systray.AddMenuItem("Change Every", "")
-	a.mIntervals = map[int]*systray.MenuItem{}
-	var intervalLabels []string
-	for _, m := range intervals {
-		a.mIntervals[m] = mEvery.AddSubMenuItemCheckbox(intervalLabel(m), "", false)
-		intervalLabels = append(intervalLabels, intervalLabel(m))
-	}
-	mSrc := systray.AddMenuItem("Sources", "")
-	a.mSources = map[string]*systray.MenuItem{}
-	var srcLabels []string
-	for _, s := range allSources {
-		a.mSources[s.Name()] = mSrc.AddSubMenuItemCheckbox(sourceLabels[s.Name()], "", false)
+	a.menu = buildMenu(a)
+	var srcLabels, ivLabels []string
+	for _, s := range a.sources {
 		srcLabels = append(srcLabels, sourceLabels[s.Name()])
 	}
-	a.mLogin = systray.AddMenuItemCheckbox("Start at Login", "", false)
-	mSettings := systray.AddMenuItem("Settings…", "Open the Settings window")
-	systray.AddSeparator()
-	mQuit := systray.AddMenuItem("Quit", "")
-
-	a.mOpen.Disable()
-	a.mSave.Disable()
-
-	settingsInit(srcLabels, intervalLabels)
-	a.syncUI()
-	a.mu.Lock()
-	daID, daSecret, daAI := a.cfg.DeviantArtClientID, a.cfg.DeviantArtClientSecret, a.cfg.DeviantArtAllowAI
-	a.mu.Unlock()
-	daStatus := "Not connected."
-	if daID != "" && daSecret != "" {
-		daStatus = "Keys saved."
+	for _, m := range intervals {
+		ivLabels = append(ivLabels, intervalLabel(m))
 	}
-	settingsSetDeviantArt(daID, daSecret, !daAI, daStatus)
-	a.setStatus("Starting…", "", false)
-
+	settingsInit(srcLabels, ivLabels)
+	a.syncUI()
+	a.refreshStatus(false)
 	a.mu.Lock()
+	hasKeys := a.cfg.DeviantArtClientID != ""
 	firstRun := !a.cfg.WelcomeShown
 	a.cfg.WelcomeShown = true
 	a.cfg.save()
 	a.mu.Unlock()
+	if hasKeys {
+		a.refreshDeviant("Keys saved (secret in Keychain).")
+	} else {
+		a.refreshDeviant("Not connected.")
+	}
 	if firstRun {
 		showSettings()
 	}
 
 	watchSpaces()
-	go a.handleClicks(mSettings, mQuit)
-	go a.loop()
+	go a.Run()
 }
 
-func (a *App) handleClicks(mSettings, mQuit *systray.MenuItem) {
-	for m, item := range a.mIntervals {
-		go func() {
-			for range item.ClickedCh {
-				a.setInterval(m)
+func runOnce(a *App, only string, dry bool) {
+	weights := a.weights()
+	if only != "" {
+		weights = map[string]int{}
+		for _, s := range a.sources {
+			if strings.EqualFold(s.Name(), only) {
+				weights[s.Name()] = 1
 			}
-		}()
-	}
-	for name, item := range a.mSources {
-		go func() {
-			for range item.ClickedCh {
-				a.mu.Lock()
-				on := !a.cfg.Sources[name]
-				a.mu.Unlock()
-				a.setSource(name, on)
-			}
-		}()
-	}
-	for {
-		select {
-		case <-a.mNext.ClickedCh:
-			a.next()
-		case <-a.mPause.ClickedCh:
-			a.mu.Lock()
-			p := !a.cfg.Paused
-			a.mu.Unlock()
-			a.setPaused(p)
-		case <-a.mOpen.ClickedCh:
-			a.openPage()
-		case <-a.mSave.ClickedCh:
-			a.saveCurrent()
-		case <-a.mLogin.ClickedCh:
-			a.setLoginOn(!loginEnabled())
-		case <-mSettings.ClickedCh:
-			showSettings()
-		case <-mQuit.ClickedCh:
-			a.quit()
-			return
 		}
 	}
-}
-
-// ---- actions shared by the menu and the Settings window
-
-func (a *App) next() {
-	go a.change()
-	a.kick()
-}
-
-func (a *App) openPage() {
-	if u := a.cur().PageURL; u != "" {
-		_ = exec.Command("open", u).Start()
-	}
-}
-
-func (a *App) setInterval(m int) {
-	a.mu.Lock()
-	a.cfg.IntervalMin = m
-	a.cfg.save()
-	a.mu.Unlock()
-	a.syncUI()
-	a.kick()
-}
-
-func (a *App) setSource(name string, on bool) {
-	a.mu.Lock()
-	a.cfg.Sources[name] = on
-	a.cfg.save()
-	a.mu.Unlock()
-	a.syncUI()
-}
-
-func (a *App) setPaused(p bool) {
-	a.mu.Lock()
-	a.cfg.Paused = p
-	a.cfg.save()
-	a.mu.Unlock()
-	a.syncUI()
-	a.kick()
-}
-
-func (a *App) setLoginOn(on bool) {
-	if err := setLogin(on); err != nil {
-		log.Print("login item: ", err)
-	}
-	a.syncUI()
-}
-
-func (a *App) quit() { systray.Quit() }
-
-func (a *App) setSkipAI(skip bool) {
-	a.mu.Lock()
-	a.cfg.DeviantArtAllowAI = !skip
-	a.cfg.save()
-	a.mu.Unlock()
-	resetSource("DeviantArt")
-}
-
-// setDeviantKeys saves DeviantArt credentials, checks them by getting a
-// token, and switches the source on if they work.
-func (a *App) setDeviantKeys(id, secret string) {
-	a.mu.Lock()
-	a.cfg.DeviantArtClientID, a.cfg.DeviantArtClientSecret = id, secret
-	a.cfg.save()
-	a.mu.Unlock()
-	resetSource("DeviantArt")
-	if id == "" || secret == "" {
-		a.setSource("DeviantArt", false)
-		settingsSetDeviantStatus("Keys removed. DeviantArt is off.")
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	if _, err := daAuth.accessToken(ctx, id, secret); err != nil {
-		log.Print(err)
-		settingsSetDeviantStatus("❌ " + err.Error())
-		return
-	}
-	a.setSource("DeviantArt", true)
-	settingsSetDeviantStatus("✅ Connected. DeviantArt is now one of your sources.")
-}
-
-// syncUI pushes settings into both the menu and the Settings window.
-func (a *App) syncUI() {
-	a.mu.Lock()
-	interval, paused := a.cfg.IntervalMin, a.cfg.Paused
-	enabled := map[string]bool{}
-	for k, v := range a.cfg.Sources {
-		enabled[k] = v
-	}
-	a.mu.Unlock()
-	login := loginEnabled()
-
-	intervalIdx := -1
-	for i, m := range intervals {
-		if m == interval {
-			intervalIdx = i
-			a.mIntervals[m].Check()
-		} else {
-			a.mIntervals[m].Uncheck()
-		}
-	}
-	mask := 0
-	for i, s := range allSources {
-		if enabled[s.Name()] {
-			mask |= 1 << i
-			a.mSources[s.Name()].Check()
-		} else {
-			a.mSources[s.Name()].Uncheck()
-		}
-	}
-	if login {
-		a.mLogin.Check()
-	} else {
-		a.mLogin.Uncheck()
-	}
-	if paused {
-		a.mPause.SetTitle("Resume")
-		systray.SetTooltip("Wallpaper Changer (paused)")
-	} else {
-		a.mPause.SetTitle("Pause")
-		systray.SetTooltip("Wallpaper Changer")
-	}
-	settingsSetState(intervalIdx, mask, paused, login)
-}
-
-// setStatus shows what's on screen (or what's happening) in the menu and window.
-func (a *App) setStatus(title, credit string, busy bool) {
-	a.mInfo.SetTitle(trunc(title, 55))
-	a.mCredit.SetTitle(trunc(credit, 55))
-	if busy {
-		a.mNext.Disable()
-	} else {
-		a.mNext.Enable()
-	}
-	a.mu.Lock()
-	has := a.curPath != ""
-	a.mu.Unlock()
-	if has {
-		a.mOpen.Enable()
-		a.mSave.Enable()
-	}
-	settingsSetStatus(title, credit, has, busy)
-}
-
-func (a *App) kick() {
-	select {
-	case a.reset <- struct{}{}:
-	default:
-	}
-}
-
-func (a *App) cur() Image { a.mu.Lock(); defer a.mu.Unlock(); return a.current }
-
-func creditLine(img Image) string {
-	if img.Credit != "" && img.Credit != img.Source {
-		return img.Credit + " · " + img.Source
-	}
-	return img.Source
-}
-
-func (a *App) loop() {
-	a.mu.Lock()
-	paused := a.cfg.Paused
-	a.mu.Unlock()
-	if !paused {
-		a.change()
-	} else {
-		a.setStatus("Paused", "Untick “Pause” to start changing wallpapers.", false)
-	}
-	for {
-		a.mu.Lock()
-		d := time.Duration(a.cfg.IntervalMin) * time.Minute
-		a.mu.Unlock()
-		t := time.NewTimer(d)
-		select {
-		case <-t.C:
-			a.mu.Lock()
-			paused := a.cfg.Paused
-			a.mu.Unlock()
-			if !paused {
-				a.change()
-			}
-		case <-a.reset:
-			t.Stop()
-		}
-	}
-}
-
-func (a *App) change() {
-	if !a.busy.CompareAndSwap(false, true) {
-		return
-	}
-	defer a.busy.Store(false)
-
-	prev := a.cur()
-	a.setStatus("Finding a new picture…", "", true)
-
-	a.mu.Lock()
-	srcs := a.enabledSources()
-	a.mu.Unlock()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
-	img, path, err := fetchWallpaper(ctx, srcs, a.seen)
-	if err == nil {
+	img, path, err := a.fetcher.Fetch(context.Background(), a.sources, weights)
+	if err == nil && !dry {
 		err = setWallpaper(path)
 	}
 	if err != nil {
-		log.Print("change failed: ", err)
-		if prev.Title != "" {
-			a.setStatus(prev.Title, creditLine(prev), false)
-		} else if len(srcs) == 0 {
-			a.setStatus("No sources selected", "Tick at least one picture source.", false)
-		} else {
-			a.setStatus("Couldn't fetch a picture", "Will try again at the next change.", false)
-		}
-		return
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
 	}
-	log.Printf("wallpaper: %s (%s) %s", img.Title, img.Source, img.PageURL)
-
-	a.mu.Lock()
-	a.current, a.curPath = img, path
-	a.mu.Unlock()
-	a.setStatus(img.Title, creditLine(img), false)
-	pruneCache(keepInCache)
+	fmt.Printf("%s\n  %s · %s [%s]\n  %s\n  %s\n", img.Title, img.Credit, img.Source, img.Kind, img.PageURL, path)
 }
 
-func (a *App) saveCurrent() {
-	a.mu.Lock()
-	img, src := a.current, a.curPath
-	a.mu.Unlock()
-	if src == "" {
-		return
+func orOK(err error) string {
+	if err == nil {
+		return "OK"
 	}
-	dir := filepath.Join(must(os.UserHomeDir()), "Pictures", "Wallpapers")
-	_ = os.MkdirAll(dir, 0o755)
-	name := unsafeChars.ReplaceAllString(trunc(img.Title, 80), "_")
-	dst := filepath.Join(dir, strings.Trim(name, "_")+filepath.Ext(src))
-	in, err := os.Open(src)
-	if err != nil {
-		log.Print(err)
-		return
-	}
-	defer in.Close()
-	out, err := os.Create(dst)
-	if err != nil {
-		log.Print(err)
-		return
-	}
-	defer out.Close()
-	if _, err := io.Copy(out, in); err != nil {
-		log.Print(err)
-		return
-	}
-	_ = exec.Command("open", "-R", dst).Start()
-}
-
-func trunc(s string, n int) string {
-	r := []rune(s)
-	if len(r) <= n {
-		return s
-	}
-	return string(r[:n-1]) + "…"
+	return err.Error()
 }

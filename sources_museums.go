@@ -22,14 +22,6 @@ func artOK(texts ...string) bool {
 	return !isBlocked(texts...) && !isBlockedArt(texts...)
 }
 
-func goodShape(w, h int) bool {
-	if w < minWidth || h <= 0 {
-		return false
-	}
-	ar := float64(w) / float64(h)
-	return ar >= minAspect && ar <= maxAspect
-}
-
 // ---------------------------------------------------------------- Cleveland Museum of Art
 
 // ClevelandArt uses the Cleveland Museum of Art Open Access API (CC0, no key).
@@ -99,6 +91,7 @@ func (ClevelandArt) Candidates(ctx context.Context) ([]Image, error) {
 				Credit:  artist,
 				PageURL: a.URL,
 				Source:  "Cleveland Museum of Art",
+				Kind:    KindArt,
 				urls:    func(context.Context) ([]string, error) { return []string{u}, nil },
 			})
 		}
@@ -217,6 +210,7 @@ func (s Smithsonian) Candidates(ctx context.Context) ([]Image, error) {
 			Credit:  artist,
 			PageURL: c.DNR.RecordLink,
 			Source:  "Smithsonian American Art Museum",
+			Kind:    KindArt,
 			urls:    func(context.Context) ([]string, error) { return []string{jpg}, nil },
 		})
 	}

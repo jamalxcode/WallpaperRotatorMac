@@ -8,6 +8,7 @@ package main
 import "C"
 
 import (
+	"strconv"
 	"strings"
 	"unsafe"
 )
@@ -16,36 +17,43 @@ import (
 var theApp *App
 
 //export goSettingsAction
-func goSettingsAction(action, index, on C.int) {
+func goSettingsAction(action, index, value C.int) {
 	a := theApp
 	if a == nil {
 		return
 	}
+	i, on := int(index), value != 0
 	// Called on the main thread: hand off so we never block the UI.
 	go func() {
 		switch action {
 		case C.WCActionNext:
-			a.next()
+			a.Next()
+		case C.WCActionPrevious:
+			a.Previous()
+		case C.WCActionBan:
+			a.Ban()
 		case C.WCActionOpenPage:
-			a.openPage()
+			a.OpenPage()
 		case C.WCActionSave:
-			a.saveCurrent()
+			a.SaveCurrent()
 		case C.WCActionInterval:
-			if i := int(index); i >= 0 && i < len(intervals) {
-				a.setInterval(intervals[i])
+			if i >= 0 && i < len(intervals) {
+				a.SetInterval(intervals[i])
 			}
-		case C.WCActionSource:
-			if i := int(index); i >= 0 && i < len(allSources) {
-				a.setSource(allSources[i].Name(), on != 0)
+		case C.WCActionWeight:
+			if i >= 0 && i < len(a.sources) {
+				a.SetWeight(a.sources[i].Name(), int(value))
 			}
 		case C.WCActionPause:
-			a.setPaused(on != 0)
+			a.SetPaused(on)
+		case C.WCActionKeepRunning:
+			a.SetKeepRunning(on)
 		case C.WCActionLogin:
-			a.setLoginOn(on != 0)
-		case C.WCActionQuit:
-			a.quit()
+			a.SetLogin(on)
 		case C.WCActionSkipAI:
-			a.setSkipAI(on != 0)
+			a.SetSkipAI(on)
+		case C.WCActionQuit:
+			a.Quit()
 		}
 	}()
 }
@@ -57,21 +65,7 @@ func goSettingsDeviantKeys(id, secret *C.char) {
 		return
 	}
 	i, s := C.GoString(id), C.GoString(secret) // copy before returning to Objective-C
-	go a.setDeviantKeys(i, s)
-}
-
-func settingsSetDeviantArt(id, secret string, skipAI bool, status string) {
-	withCString(id, func(ci *C.char) {
-		withCString(secret, func(cs *C.char) {
-			withCString(status, func(st *C.char) {
-				C.wcSetDeviantArt(ci, cs, cbool(skipAI), st)
-			})
-		})
-	})
-}
-
-func settingsSetDeviantStatus(status string) {
-	withCString(status, func(st *C.char) { C.wcSetDeviantStatus(st) })
+	go a.SetDeviantKeys(i, s)
 }
 
 func withCString(s string, f func(*C.char)) {
@@ -91,23 +85,38 @@ func settingsInit(sourceLabels, intervalLabels []string) {
 
 func showSettings() { C.wcShowSettings() }
 
-func settingsSetStatus(title, credit string, hasImage, busy bool) {
+func settingsSetStatus(title, credit, imagePath string, hasImage, busy, canGoBack bool) {
 	withCString(title, func(t *C.char) {
 		withCString(credit, func(c *C.char) {
-			C.wcSetStatus(t, c, cbool(hasImage), cbool(busy))
+			withCString(imagePath, func(p *C.char) {
+				C.wcSetStatus(t, c, p, cbool(hasImage), cbool(busy), cbool(canGoBack))
+			})
 		})
 	})
 }
 
-func settingsSetState(intervalIndex, sourcesMask int, paused, login bool) {
-	C.wcSetState(C.int(intervalIndex), C.int(sourcesMask), cbool(paused), cbool(login))
+func settingsSetState(intervalIndex int, weights []int, paused bool, login LoginStatus, keepRunning bool, note string) {
+	parts := make([]string, len(weights))
+	for i, w := range weights {
+		parts[i] = strconv.Itoa(w)
+	}
+	withCString(strings.Join(parts, ","), func(ws *C.char) {
+		withCString(note, func(n *C.char) {
+			C.wcSetState(C.int(intervalIndex), ws, cbool(paused), C.int(login), cbool(keepRunning), n)
+		})
+	})
+}
+
+func settingsSetDeviantArt(id string, hasSecret, skipAI bool, status string) {
+	withCString(id, func(ci *C.char) {
+		withCString(status, func(st *C.char) {
+			C.wcSetDeviantArt(ci, cbool(hasSecret), cbool(skipAI), st)
+		})
+	})
+}
+
+func settingsSetDeviantStatus(status string) {
+	withCString(status, func(st *C.char) { C.wcSetDeviantStatus(st) })
 }
 
 func askRunningInstanceToShowSettings() { C.wcPostShowToRunningInstance() }
-
-func cbool(b bool) C.int {
-	if b {
-		return 1
-	}
-	return 0
-}
