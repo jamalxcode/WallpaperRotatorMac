@@ -10,7 +10,8 @@ and needs no accounts or API keys.
 - ⚙️ A **Settings window** that opens on first launch, whenever you open the app again
   (Finder, Launchpad, Spotlight), or from the menu's **Settings…**.
 - ⏱ Changes every 4 minutes by default (1, 4, 10, 30 or 60 minutes available).
-- 🌍 Five public-domain / CC0 sources that you can switch on and off individually.
+- 🌍 Five public-domain / CC0 sources that you can switch on and off individually, plus
+  optional DeviantArt art (with your own free API keys).
 - 🖥 Covers every display. When you switch to another desktop (Space), the latest picture
   is applied there too.
 - 🔁 Doesn't repeat pictures (it remembers the last 2,000).
@@ -25,6 +26,23 @@ and needs no accounts or API keys.
 | [Wikimedia Commons Featured Pictures](https://commons.wikimedia.org/wiki/Commons:Featured_pictures) | Award-winning photos of nature, cities, animals | Only Public domain / CC0 files are used |
 | [Cleveland Museum of Art Open Access](https://openaccess-api.clevelandart.org) | Landscape and seascape paintings, prints, early photography | CC0 |
 | [Smithsonian Open Access](https://www.si.edu/openaccess) (American Art Museum) | Hudson River School, the American West | CC0 |
+
+### Optional: DeviantArt
+DeviantArt art **belongs to its artists and is not public domain**, so this source is off until
+you connect it and always credits the artist. It browses scenic tags (wallpaper, landscape,
+space art, concept art, cyberpunk, pixel art…). Mature content is excluded, and by default titles
+mentioning AI tools are skipped.
+
+To connect it, register your own free app:
+1. Sign in at https://www.deviantart.com/developers and click **Register Application**.
+2. Fill in a title, and as the **OAuth2 Redirect URI** any `https` URL that isn't on
+   deviantart.com (e.g. this repo's URL; it isn't used). Set **Client type** to **Confidential**.
+   DeviantArt publishes the app as a post on your profile. That's normal, so don't delete it.
+3. Copy the **client_id** and **client_secret** from https://www.deviantart.com/studio/apps.
+4. Paste them into the **DeviantArt** section of the Settings window and click **Connect**.
+
+The app uses OAuth 2.0 *client credentials*, so there's no browser sign-in. Keys are stored only in
+your local `config.json` (readable only by you) and never in this repo.
 
 Search results are cached and used up one at a time, so each API is queried rarely. A source
 that fails is skipped for 15 minutes, or for 2 hours if it reports a rate limit.
@@ -92,7 +110,7 @@ one place show up in the other.
 |---|---|
 | `main.go` | Menu bar ([fyne.io/systray](https://github.com/fyne-io/systray)), timer, actions shared by menu and window |
 | `settings_darwin.m/.h/.go` | Native Cocoa Settings window and the "app opened again" handling |
-| `sources.go`, `sources_wildlife.go`, `sources_museums.go` | API clients for each source |
+| `sources.go`, `sources_wildlife.go`, `sources_museums.go`, `sources_deviantart.go` | API clients for each source (DeviantArt uses OAuth client credentials) |
 | `fetch.go` | Per-source candidate cache, back-off, download and size checks |
 | `filter.go` | Content blocklists |
 | `wallpaper_darwin.go` | Sets the wallpaper through `NSWorkspace` (cgo / Objective-C) and re-applies it on Space switches |
@@ -104,5 +122,5 @@ one place show up in the other.
 - Full-screen app Spaces have no wallpaper, so nothing changes there.
 
 ## License
-[MIT](LICENSE). The pictures themselves belong to their sources (public domain / CC0). Use
-**Open Image Page** for each picture's credit.
+[MIT](LICENSE). The pictures themselves belong to their sources: public domain / CC0, except
+DeviantArt art, which belongs to its artists. Use **Open Image Page** for each picture's credit.

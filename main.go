@@ -26,6 +26,7 @@ var sourceLabels = map[string]string{
 	"Wikimedia":   "Wikimedia Commons (featured photos)",
 	"Cleveland":   "Cleveland Museum of Art (paintings & prints)",
 	"Smithsonian": "Smithsonian American Art (landscapes)",
+	"DeviantArt":  "DeviantArt (artists' work, needs your keys)",
 }
 
 var intervals = []int{1, 4, 10, 30, 60}
@@ -57,7 +58,12 @@ func main() {
 	}
 
 	a := &App{cfg: loadConfig(), seen: loadSeen(), reset: make(chan struct{}, 1)}
-	allSources = []Source{NASA{}, Wildlife{}, Wikimedia{}, ClevelandArt{}, Smithsonian{Key: a.cfg.SmithsonianKey}}
+	allSources = []Source{NASA{}, Wildlife{}, Wikimedia{}, ClevelandArt{}, Smithsonian{Key: a.cfg.SmithsonianKey},
+		DeviantArt{creds: func() (string, string, bool) {
+			a.mu.Lock()
+			defer a.mu.Unlock()
+			return a.cfg.DeviantArtClientID, a.cfg.DeviantArtClientSecret, !a.cfg.DeviantArtAllowAI
+		}}}
 
 	if *once {
 		srcs := a.enabledSources()
@@ -152,6 +158,14 @@ func (a *App) onReady() {
 
 	settingsInit(srcLabels, intervalLabels)
 	a.syncUI()
+	a.mu.Lock()
+	daID, daSecret, daAI := a.cfg.DeviantArtClientID, a.cfg.DeviantArtClientSecret, a.cfg.DeviantArtAllowAI
+	a.mu.Unlock()
+	daStatus := "Not connected."
+	if daID != "" && daSecret != "" {
+		daStatus = "Keys saved."
+	}
+	settingsSetDeviantArt(daID, daSecret, !daAI, daStatus)
 	a.setStatus("Starting…", "", false)
 
 	a.mu.Lock()
@@ -257,6 +271,38 @@ func (a *App) setLoginOn(on bool) {
 }
 
 func (a *App) quit() { systray.Quit() }
+
+func (a *App) setSkipAI(skip bool) {
+	a.mu.Lock()
+	a.cfg.DeviantArtAllowAI = !skip
+	a.cfg.save()
+	a.mu.Unlock()
+	resetSource("DeviantArt")
+}
+
+// setDeviantKeys saves DeviantArt credentials, checks them by getting a
+// token, and switches the source on if they work.
+func (a *App) setDeviantKeys(id, secret string) {
+	a.mu.Lock()
+	a.cfg.DeviantArtClientID, a.cfg.DeviantArtClientSecret = id, secret
+	a.cfg.save()
+	a.mu.Unlock()
+	resetSource("DeviantArt")
+	if id == "" || secret == "" {
+		a.setSource("DeviantArt", false)
+		settingsSetDeviantStatus("Keys removed. DeviantArt is off.")
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if _, err := daAuth.accessToken(ctx, id, secret); err != nil {
+		log.Print(err)
+		settingsSetDeviantStatus("❌ " + err.Error())
+		return
+	}
+	a.setSource("DeviantArt", true)
+	settingsSetDeviantStatus("✅ Connected. DeviantArt is now one of your sources.")
+}
 
 // syncUI pushes settings into both the menu and the Settings window.
 func (a *App) syncUI() {

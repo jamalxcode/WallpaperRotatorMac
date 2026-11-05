@@ -30,12 +30,16 @@ type Config struct {
 	Sources     map[string]bool `json:"sources"`
 	// Optional free key from https://api.data.gov/signup (DEMO_KEY is used otherwise).
 	SmithsonianKey string `json:"smithsonian_api_key,omitempty"`
+	// DeviantArt OAuth app credentials (client credentials grant). Kept only here.
+	DeviantArtClientID     string `json:"deviantart_client_id,omitempty"`
+	DeviantArtClientSecret string `json:"deviantart_client_secret,omitempty"`
+	DeviantArtAllowAI      bool   `json:"deviantart_allow_ai,omitempty"`
 	// Settings window opens automatically on the very first launch.
 	WelcomeShown bool `json:"welcome_shown"`
 }
 
 func loadConfig() Config {
-	c := Config{IntervalMin: 4, Sources: map[string]bool{"NASA": true, "Wildlife": true, "Wikimedia": true, "Cleveland": true, "Smithsonian": true}}
+	c := Config{IntervalMin: 4, Sources: map[string]bool{"NASA": true, "Wildlife": true, "Wikimedia": true, "Cleveland": true, "Smithsonian": true, "DeviantArt": false}}
 	// json.Unmarshal merges into this map, so sources added later default to on.
 	if b, err := os.ReadFile(configPath); err == nil {
 		_ = json.Unmarshal(b, &c)
@@ -48,7 +52,8 @@ func loadConfig() Config {
 
 func (c Config) save() {
 	b, _ := json.MarshalIndent(c, "", "  ")
-	_ = os.WriteFile(configPath, b, 0o644)
+	_ = os.WriteFile(configPath, b, 0o600) // may hold an API secret
+	_ = os.Chmod(configPath, 0o600)
 }
 
 // Seen keeps recently used image IDs so we don't repeat.

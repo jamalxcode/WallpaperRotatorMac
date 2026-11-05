@@ -44,6 +44,14 @@ const (
 	rateLimitBackoff = 2 * time.Hour
 )
 
+// resetSource forgets a source's cached results and back-off (e.g. after new keys).
+func resetSource(name string) {
+	poolMu.Lock()
+	defer poolMu.Unlock()
+	delete(pool, name)
+	delete(backoff, name)
+}
+
 // nextCandidate pops an unseen candidate for src, refilling from its API if needed.
 func nextCandidate(ctx context.Context, src Source, seen *Seen) (Image, bool, error) {
 	name := src.Name()

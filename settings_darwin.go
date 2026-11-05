@@ -44,8 +44,34 @@ func goSettingsAction(action, index, on C.int) {
 			a.setLoginOn(on != 0)
 		case C.WCActionQuit:
 			a.quit()
+		case C.WCActionSkipAI:
+			a.setSkipAI(on != 0)
 		}
 	}()
+}
+
+//export goSettingsDeviantKeys
+func goSettingsDeviantKeys(id, secret *C.char) {
+	a := theApp
+	if a == nil {
+		return
+	}
+	i, s := C.GoString(id), C.GoString(secret) // copy before returning to Objective-C
+	go a.setDeviantKeys(i, s)
+}
+
+func settingsSetDeviantArt(id, secret string, skipAI bool, status string) {
+	withCString(id, func(ci *C.char) {
+		withCString(secret, func(cs *C.char) {
+			withCString(status, func(st *C.char) {
+				C.wcSetDeviantArt(ci, cs, cbool(skipAI), st)
+			})
+		})
+	})
+}
+
+func settingsSetDeviantStatus(status string) {
+	withCString(status, func(st *C.char) { C.wcSetDeviantStatus(st) })
 }
 
 func withCString(s string, f func(*C.char)) {

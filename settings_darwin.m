@@ -12,6 +12,11 @@ static NSString *const kShowNotification = @"com.yoda.wallpaperchanger.showSetti
 @property(strong) NSButton *nextButton, *openButton, *saveButton, *pauseBox, *loginBox;
 @property(strong) NSPopUpButton *intervalPopup;
 @property(strong) NSMutableArray<NSButton *> *sourceBoxes;
+@property(strong) NSTextField *daIDField, *daStatusLabel;
+@property(strong) NSSecureTextField *daSecretField;
+@property(strong) NSButton *daSkipAIBox;
+@property NSString *daID, *daSecret, *daStatus;
+@property int daSkipAI;
 // last known state, applied when the window is (re)built
 @property NSString *statusTitle, *statusCredit;
 @property int hasImage, busy, intervalIndex, sourcesMask, paused, login;
@@ -80,6 +85,20 @@ static NSStackView *row(NSArray<NSView *> *views) {
 		[sourceViews addObject:b];
 	}
 
+	// DeviantArt keys
+	self.daIDField = [NSTextField textFieldWithString:@""];
+	self.daIDField.placeholderString = @"Client ID";
+	[self.daIDField.widthAnchor constraintEqualToConstant:110].active = YES;
+	self.daSecretField = [[NSSecureTextField alloc] init];
+	self.daSecretField.placeholderString = @"Client secret";
+	[self.daSecretField.widthAnchor constraintEqualToConstant:190].active = YES;
+	NSButton *daSave = [self button:@"Connect" action:@selector(daConnect:)];
+	self.daStatusLabel = label(@"", 11, NO, NSColor.secondaryLabelColor);
+	self.daStatusLabel.preferredMaxLayoutWidth = width - 2 * pad;
+	self.daSkipAIBox = [self checkbox:@"Skip AI-generated DeviantArt art" action:@selector(skipAI:) tag:0];
+	NSTextField *daHelp = label(@"Art on DeviantArt belongs to its artists (not public domain). Get free keys at deviantart.com/developers → Register Application.", 11, NO, NSColor.tertiaryLabelColor);
+	daHelp.preferredMaxLayoutWidth = width - 2 * pad;
+
 	self.pauseBox = [self checkbox:@"Pause automatic changes" action:@selector(pause:) tag:0];
 	self.loginBox = [self checkbox:@"Start Wallpaper Changer at login" action:@selector(login:) tag:0];
 
@@ -100,6 +119,12 @@ static NSStackView *row(NSArray<NSView *> *views) {
 	]];
 	[views addObjectsFromArray:sourceViews];
 	[views addObjectsFromArray:@[
+		separator(),
+		label(@"DeviantArt", 13, YES, NSColor.labelColor),
+		daHelp,
+		row(@[ self.daIDField, self.daSecretField, daSave ]),
+		self.daStatusLabel,
+		self.daSkipAIBox,
 		separator(),
 		self.pauseBox,
 		self.loginBox,
@@ -150,6 +175,10 @@ static NSStackView *row(NSArray<NSView *> *views) {
 		b.state = (self.sourcesMask & (1 << b.tag)) ? NSControlStateValueOn : NSControlStateValueOff;
 	self.pauseBox.state = self.paused ? NSControlStateValueOn : NSControlStateValueOff;
 	self.loginBox.state = self.login ? NSControlStateValueOn : NSControlStateValueOff;
+	if (self.daID && self.daIDField.currentEditor == nil) self.daIDField.stringValue = self.daID;
+	if (self.daSecret && self.daSecretField.currentEditor == nil) self.daSecretField.stringValue = self.daSecret;
+	self.daStatusLabel.stringValue = self.daStatus ?: @"";
+	self.daSkipAIBox.state = self.daSkipAI ? NSControlStateValueOn : NSControlStateValueOff;
 	// keep the window snug if the title wraps onto more lines
 	[self.window setContentSize:self.window.contentView.fittingSize];
 }
@@ -174,6 +203,17 @@ static NSStackView *row(NSArray<NSView *> *views) {
 }
 - (void)pause:(NSButton *)b { goSettingsAction(WCActionPause, 0, b.state == NSControlStateValueOn); }
 - (void)login:(NSButton *)b { goSettingsAction(WCActionLogin, 0, b.state == NSControlStateValueOn); }
+- (void)skipAI:(NSButton *)b { goSettingsAction(WCActionSkipAI, 0, b.state == NSControlStateValueOn); }
+- (void)daConnect:(id)s {
+	[self.window makeFirstResponder:nil]; // commit any in-progress edit
+	NSString *cid = [self.daIDField.stringValue stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+	NSString *sec = [self.daSecretField.stringValue stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+	self.daID = cid;
+	self.daSecret = sec;
+	self.daStatus = @"Connecting…";
+	self.daStatusLabel.stringValue = self.daStatus;
+	goSettingsDeviantKeys((char *)cid.UTF8String, (char *)sec.UTF8String);
+}
 
 // Apple Event sent when the user opens the app while it is already running.
 - (void)handleReopen:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)reply {
@@ -225,6 +265,27 @@ void wcSetState(int intervalIndex, int sourcesMask, int paused, int login) {
 		gController.sourcesMask = sourcesMask;
 		gController.paused = paused;
 		gController.login = login;
+		[gController apply];
+	});
+}
+
+void wcSetDeviantArt(const char *clientID, const char *secret, int skipAI, const char *status) {
+	NSString *i = [NSString stringWithUTF8String:clientID];
+	NSString *sc = [NSString stringWithUTF8String:secret];
+	NSString *st = [NSString stringWithUTF8String:status];
+	onMain(^{
+		gController.daID = i;
+		gController.daSecret = sc;
+		gController.daSkipAI = skipAI;
+		gController.daStatus = st;
+		[gController apply];
+	});
+}
+
+void wcSetDeviantStatus(const char *status) {
+	NSString *st = [NSString stringWithUTF8String:status];
+	onMain(^{
+		gController.daStatus = st;
 		[gController apply];
 	});
 }

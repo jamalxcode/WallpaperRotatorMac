@@ -12,6 +12,7 @@ enum {
 	WCActionPause = 6,    // on = paused
 	WCActionLogin = 7,    // on = start at login
 	WCActionQuit = 8,
+	WCActionSkipAI = 9,   // on = skip AI-generated DeviantArt art
 };
 
 // Labels are newline-separated. Safe to call from any thread.
@@ -21,5 +22,9 @@ void wcSetStatus(const char *title, const char *credit, int hasImage, int busy);
 void wcSetState(int intervalIndex, int sourcesMask, int paused, int login);
 // Show the window when the app is opened again (Finder, Launchpad, Spotlight).
 void wcInstallReopenHandlers(void);
+// DeviantArt section: fill the key fields and show a status line.
+void wcSetDeviantArt(const char *clientID, const char *secret, int skipAI, const char *status);
+void wcSetDeviantStatus(const char *status);
+
 // Used by a second copy of the app to ask the running one to show its window.
 void wcPostShowToRunningInstance(void);
