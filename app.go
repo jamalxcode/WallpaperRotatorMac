@@ -57,7 +57,8 @@ func NewApp() *App {
 		reset:   make(chan struct{}, 1),
 		sys:     SystemState{Online: true},
 	}
-	a.fetcher = NewFetcher(loadIDSet(seenPath, 2000), loadIDSet(bannedPath, 0))
+	a.fetcher = NewFetcher(loadIDSet(seenPath, 2000), loadIDSet(bannedPath, 0), loadHashSet(looksPath, 2000))
+	a.seedFingerprints()
 	a.fetcher.check = func(path string, img Image) error {
 		r, ok := visionCheck(path)
 		if !ok {
@@ -83,6 +84,18 @@ func NewApp() *App {
 	}
 	a.cfg.save()
 	return a
+}
+
+// seedFingerprints fingerprints pictures shown before this feature existed.
+func (a *App) seedFingerprints() {
+	if _, err := os.Stat(looksPath); err == nil {
+		return
+	}
+	for _, s := range a.history.All() {
+		if h, err := fileHash(s.Path); err == nil {
+			a.fetcher.looks.Add(h)
+		}
+	}
 }
 
 func (a *App) deviantCreds() (id, secret string, skipAI bool) {
@@ -288,6 +301,9 @@ func (a *App) Ban() {
 		return
 	}
 	a.fetcher.banned.Add(cur.ID)
+	if h, err := fileHash(cur.Path); err == nil {
+		a.fetcher.looks.Add(h) // also skips re-uploads of the same picture
+	}
 	a.history.Remove(cur.ID)
 	if strings.HasPrefix(cur.Path, cacheDir) {
 		_ = os.Remove(cur.Path)

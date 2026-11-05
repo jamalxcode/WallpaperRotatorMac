@@ -47,14 +47,15 @@ type Fetcher struct {
 	pool    map[string][]Image
 	backoff map[string]time.Time
 
-	seen   *IDSet // recently shown, don't repeat
-	banned *IDSet // "Never show this again", forever
+	seen   *IDSet   // recently shown, don't repeat
+	banned *IDSet   // "Never show this again", forever
+	looks  *HashSet // fingerprints of recently shown pictures (same image, different ID)
 	// check runs on the downloaded file (on-device image check); nil = skip.
 	check func(path string, img Image) error
 }
 
-func NewFetcher(seen, banned *IDSet) *Fetcher {
-	return &Fetcher{pool: map[string][]Image{}, backoff: map[string]time.Time{}, seen: seen, banned: banned}
+func NewFetcher(seen, banned *IDSet, looks *HashSet) *Fetcher {
+	return &Fetcher{pool: map[string][]Image{}, backoff: map[string]time.Time{}, seen: seen, banned: banned, looks: looks}
 }
 
 // Reset forgets a source's cached results and back-off (e.g. after new keys).
@@ -166,10 +167,15 @@ func (f *Fetcher) Fetch(ctx context.Context, sources []Source, weights map[strin
 				}
 				downloads++
 				path, err := download(ctx, u, c.ID)
+				var look uint64
+				if err == nil && f.looks != nil {
+					look, err = duplicateCheck(f.looks, path)
+				}
 				if err == nil && f.check != nil {
-					if err = f.check(path, c); err != nil {
-						os.Remove(path)
-					}
+					err = f.check(path, c)
+				}
+				if err != nil && path != "" {
+					os.Remove(path)
 				}
 				if err != nil {
 					lastErr = err
@@ -180,6 +186,9 @@ func (f *Fetcher) Fetch(ctx context.Context, sources []Source, weights map[strin
 					continue
 				}
 				f.seen.Add(c.ID)
+				if f.looks != nil && look != 0 {
+					f.looks.Add(look)
+				}
 				return c, path, nil
 			}
 			f.seen.Add(c.ID) // don't retry broken/unsuitable ones

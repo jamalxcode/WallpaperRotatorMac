@@ -24,6 +24,7 @@ var (
 	seenPath   = filepath.Join(supportDir, "seen.json")
 	bannedPath = filepath.Join(supportDir, "banned.json")
 	historyPth = filepath.Join(supportDir, "history.json")
+	looksPath  = filepath.Join(supportDir, "fingerprints.json")
 	logPath    = filepath.Join(home, "Library", "Logs", "WallpaperRotator.log")
 	savedDir   = filepath.Join(home, "Pictures", "Wallpapers")
 )
