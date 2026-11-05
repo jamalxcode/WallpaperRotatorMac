@@ -1,4 +1,6 @@
-# Wallpaper Rotator for Mac
+<p align="center"><img src="assets/icon.png" width="160" alt="Wallpaper Rotator icon"></p>
+
+<h1 align="center">Wallpaper Rotator for Mac</h1>
 
 A tiny macOS menu-bar app, written in Go, that changes your desktop wallpaper every few
 minutes with **public-domain** pictures: nebulae and Earth from orbit, landscape paintings
@@ -115,6 +117,7 @@ one place show up in the other.
 | `filter.go` | Content blocklists |
 | `wallpaper_darwin.go` | Sets the wallpaper through `NSWorkspace` (cgo / Objective-C) and re-applies it on Space switches |
 | `store.go`, `login.go`, `icon.go` | Settings, history, login item, generated menu-bar icon |
+| `assets/icon.png` | 1024px app icon; `make` turns it into `AppIcon.icns` with `sips` + `iconutil` |
 
 ## Known limitations
 - macOS only lets apps set the wallpaper of the **current** Space. Other Spaces get the new
