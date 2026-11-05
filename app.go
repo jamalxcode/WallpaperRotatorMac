@@ -58,6 +58,7 @@ func NewApp() *App {
 		reset:   make(chan struct{}, 1),
 		sys:     SystemState{Online: true},
 	}
+	setMainDisplayOnly(a.cfg.MainDisplayOnly)
 	a.fetcher = NewFetcher(loadIDSet(seenPath, 2000), loadIDSet(bannedPath, 0), loadHashSet(looksPath, 2000))
 	a.seedFingerprints()
 	a.fetcher.check = func(path string, img Image) error {

@@ -4,6 +4,8 @@
 // Wallpaper: set on every screen of the current Space; re-applied when the
 // user switches Space or displays change. Returns NULL or a malloc'd error.
 char *wpSetWallpaper(const char *path);
+// on != 0: only the main display (the one with the menu bar) is changed.
+void wpSetMainDisplayOnly(int on);
 void wpStartSpaceWatcher(void);
 
 // System state: calls goSystemState(locked, screensAsleep, lowPower,

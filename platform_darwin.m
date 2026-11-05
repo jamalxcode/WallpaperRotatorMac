@@ -13,8 +13,12 @@ static NSString *const kService = @"com.jamalxcode.wallpaperrotator";
 
 static NSURL *gCurrent = nil; // latest wallpaper, re-applied on Space switches
 static id gSpaceObs = nil, gScreenObs = nil;
+static int gMainOnly = 0;
 
-// Main thread only. Applies url to every screen, skipping ones already showing it.
+void wpSetMainDisplayOnly(int on) { gMainOnly = on; }
+
+// Main thread only. Applies url to every screen (or just the main one),
+// skipping ones already showing it.
 static NSString *applyToAllScreens(NSURL *url) {
 	NSString *errMsg = nil;
 	NSWorkspace *ws = [NSWorkspace sharedWorkspace];
@@ -22,7 +26,10 @@ static NSString *applyToAllScreens(NSURL *url) {
 		NSWorkspaceDesktopImageScalingKey : @(NSImageScaleProportionallyUpOrDown),
 		NSWorkspaceDesktopImageAllowClippingKey : @YES,
 	};
-	for (NSScreen *s in [NSScreen screens]) {
+	NSArray<NSScreen *> *screens = [NSScreen screens];
+	// screens[0] is always the display with the menu bar
+	if (gMainOnly && screens.count > 1) screens = @[ screens.firstObject ];
+	for (NSScreen *s in screens) {
 		if ([[ws desktopImageURLForScreen:s] isEqual:url]) continue;
 		NSError *e = nil;
 		if (![ws setDesktopImageURL:url forScreen:s options:opts error:&e]) {

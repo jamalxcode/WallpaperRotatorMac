@@ -32,6 +32,14 @@ func setWallpaper(path string) error {
 	return cErr(C.wpSetWallpaper(cs))
 }
 
+func setMainDisplayOnly(on bool) {
+	v := 0
+	if on {
+		v = 1
+	}
+	C.wpSetMainDisplayOnly(C.int(v))
+}
+
 func watchSpaces() { C.wpStartSpaceWatcher() }
 
 // SystemState is what macOS tells us about whether changing wallpapers makes sense.

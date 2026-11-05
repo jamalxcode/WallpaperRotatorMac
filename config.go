@@ -49,6 +49,9 @@ type Config struct {
 	Weights     map[string]int `json:"weights"`
 	// KeepRunning disables the automatic pause on Low Power Mode / phone hotspots.
 	KeepRunning bool `json:"keep_running_on_low_power,omitempty"`
+	// MainDisplayOnly changes only the display with the menu bar and leaves
+	// any other displays (e.g. a small status screen) alone.
+	MainDisplayOnly bool `json:"main_display_only,omitempty"`
 	// Optional free key from https://api.data.gov/signup (DEMO_KEY is used otherwise).
 	SmithsonianKey string `json:"smithsonian_api_key,omitempty"`
 	// DeviantArt OAuth app (client credentials). The secret lives in the Keychain.

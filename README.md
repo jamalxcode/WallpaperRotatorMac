@@ -74,6 +74,9 @@ The menu-bar icon has the same main actions.
 The Smithsonian uses the shared `DEMO_KEY` (about 50 requests a day). For more, add a free
 [api.data.gov](https://api.data.gov/signup) key to `config.json` as `"smithsonian_api_key"`.
 
+To change only the display with the menu bar and leave other displays alone (say, a small
+status screen), add `"main_display_only": true` to `config.json` and restart the app.
+
 ### Optional: DeviantArt
 DeviantArt art **belongs to its artists and is not public domain**, so this source is off until you
 connect it and always credits the artist. Mature content is excluded, and by default titles naming
