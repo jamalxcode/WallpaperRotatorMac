@@ -21,6 +21,7 @@ enum {
 // Labels are newline-separated. All functions are safe to call from any thread.
 void wcInit(const char *sourceLabels, const char *intervalLabels);
 void wcShowSettings(void);
+void wcWatchLaunch(void);
 void wcSetStatus(const char *title, const char *credit, const char *imagePath, int hasImage, int busy,
                  int canGoBack);
 // weights: comma-separated 0..5 per source. login: 0 off, 1 on, 2 needs approval, 3 unavailable.

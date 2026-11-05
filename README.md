@@ -3,7 +3,7 @@
 <h1 align="center">Wallpaper Rotator for Mac</h1>
 
 <p align="center">
-A tiny menu-bar app that changes your desktop wallpaper every few minutes with
+A tiny menu-bar and Dock app that changes your desktop wallpaper every few minutes with
 <b>public-domain</b> pictures: nebulae and Earth from orbit, wildlife and national parks,
 landscape paintings from museum collections, and optionally art from DeviantArt.
 </p>
@@ -34,8 +34,9 @@ make install    # builds WallpaperRotator.app, copies it to /Applications, opens
 ```
 
 ## Using it
-The **Settings window** opens on first launch, and again whenever you open the app while it's
-running (Finder, Launchpad, Spotlight) or choose **Settings…** from the menu-bar icon.
+The **Settings window** opens whenever you start the app yourself (Finder, Launchpad, Spotlight),
+when you click its Dock icon, or when you choose **Settings…** from the menu-bar icon. It stays
+hidden when macOS starts the app at login. The app also shows in the Dock, ⌘-Tab and Force Quit.
 
 - A preview of the current picture with its title and credit
 - **◀ Previous**, **Next ▶**, and **Never Show Again** (hides that picture forever and moves on)
@@ -48,7 +49,7 @@ running (Finder, Launchpad, Spotlight) or choose **Settings…** from the menu-b
 The menu-bar icon has the same main actions.
 
 > **Can't see the menu-bar icon?** On MacBooks with a notch, macOS hides icons that don't fit.
-> Open the app again to get the Settings window, or ⌘-drag other icons off the menu bar.
+> Click the Dock icon to get the Settings window, or ⌘-drag other icons off the menu bar.
 
 ### Saves battery and data
 - **Doesn't download while you're away.** Changes are skipped while the screen is locked or the

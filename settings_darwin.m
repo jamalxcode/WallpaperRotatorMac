@@ -268,6 +268,7 @@ static void fixedWidth(NSView *v, CGFloat w) { [v.widthAnchor constraintEqualToC
 		[NSApp activateIgnoringOtherApps:YES];
 	}
 	[self.window makeKeyAndOrderFront:nil];
+	[self.window orderFrontRegardless]; // menu-bar apps aren't always allowed to come forward
 }
 
 - (void)next:(id)s { goSettingsAction(WCActionNext, 0, 0); }
@@ -316,6 +317,42 @@ static void onMain(dispatch_block_t b) {
 
 static NSString *str(const char *s) { return s ? [NSString stringWithUTF8String:s] : @""; }
 
+// ---- launch: show Settings when the user starts the app, not at login ----
+
+static BOOL gShowWhenReady;
+
+@interface WCLaunchHandler : NSObject
+@end
+@implementation WCLaunchHandler
+- (void)handleOpen:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)reply {
+	NSAppleEventDescriptor *prop = [event paramDescriptorForKeyword:keyAEPropData];
+	BOOL atLogin = prop && prop.enumCodeValue == keyAELaunchedAsLogInItem;
+	goLaunchKind(atLogin ? 1 : 0);
+	if (atLogin) return;
+	if (gController) [gController show];
+	else gShowWhenReady = YES; // the window is built once the app has finished setting up
+}
+@end
+
+static WCLaunchHandler *gLaunchHandler;
+
+// Called from main() before the event loop starts. AppKit installs its own
+// launch handler while starting up, so ours goes in right after that, before
+// the launch event is delivered.
+void wcWatchLaunch(void) {
+	gLaunchHandler = [[WCLaunchHandler alloc] init];
+	[[NSNotificationCenter defaultCenter]
+	    addObserverForName:NSApplicationWillFinishLaunchingNotification
+	                object:nil
+	                 queue:nil
+	            usingBlock:^(NSNotification *n) {
+		            [[NSAppleEventManager sharedAppleEventManager] setEventHandler:gLaunchHandler
+		                                                               andSelector:@selector(handleOpen:withReplyEvent:)
+		                                                             forEventClass:kCoreEventClass
+		                                                                andEventID:kAEOpenApplication];
+	            }];
+}
+
 void wcInit(const char *sourceLabels, const char *intervalLabels) {
 	NSArray *src = [str(sourceLabels) componentsSeparatedByString:@"\n"];
 	NSArray *iv = [str(intervalLabels) componentsSeparatedByString:@"\n"];
@@ -325,6 +362,7 @@ void wcInit(const char *sourceLabels, const char *intervalLabels) {
 		gController.sourceLabels = src;
 		gController.intervalLabels = iv;
 		gController.intervalIndex = -1;
+		if (gShowWhenReady) dispatch_async(dispatch_get_main_queue(), ^{ [gController show]; });
 	});
 }
 

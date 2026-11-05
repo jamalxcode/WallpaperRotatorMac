@@ -12,7 +12,5 @@
 	<key>CFBundleShortVersionString</key><string>VERSION</string>
 	<key>LSMinimumSystemVersion</key><string>13.0</string>
 	<key>NSHumanReadableCopyright</key><string>MIT License. Pictures belong to their sources.</string>
-	<!-- menu bar only: no Dock icon -->
-	<key>LSUIElement</key><true/>
 </dict>
 </plist>

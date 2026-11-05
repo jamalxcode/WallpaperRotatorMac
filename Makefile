@@ -3,6 +3,9 @@ APP     := $(NAME).app
 BIN     := $(APP)/Contents/MacOS/$(NAME)
 ICNS    := $(APP)/Contents/Resources/AppIcon.icns
 DEST    := /Applications
+# Sign with the local "Wallpaper Rotator Local Signing" certificate when it exists, so every build
+# keeps the same identity and Keychain "Always Allow" survives rebuilds. Otherwise sign ad hoc.
+SIGN_ID ?= $(or $(shell security find-identity -p codesigning 2>/dev/null | awk '/Wallpaper Rotator Local Signing/ {print $$2; exit}'),-)
 VERSION ?= $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
 ifeq ($(VERSION),)
 VERSION := 1.1.0
@@ -20,7 +23,7 @@ app: $(ICNS) plist
 	mkdir -p $(APP)/Contents/MacOS
 	rm -f $(BIN)
 	go build -trimpath -o $(BIN) .
-	codesign --force --sign - $(APP)
+	codesign --force --sign "$(SIGN_ID)" $(APP)
 
 # Universal (Apple silicon + Intel) app
 universal: $(ICNS) plist
@@ -29,7 +32,7 @@ universal: $(ICNS) plist
 	GOARCH=amd64 CC="clang -arch x86_64" go build -trimpath -o build/$(NAME)-amd64 .
 	rm -f $(BIN)
 	lipo -create -output $(BIN) build/$(NAME)-arm64 build/$(NAME)-amd64
-	codesign --force --sign - $(APP)
+	codesign --force --sign "$(SIGN_ID)" $(APP)
 
 # Zip for GitHub Releases
 release: universal

@@ -8,6 +8,7 @@ package main
 import "C"
 
 import (
+	"log"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -15,6 +16,15 @@ import (
 
 // theApp receives actions from the Settings window.
 var theApp *App
+
+//export goLaunchKind
+func goLaunchKind(atLogin C.int) {
+	if atLogin != 0 {
+		log.Print("started at login; Settings stays hidden")
+	} else {
+		log.Print("started by the user; showing Settings")
+	}
+}
 
 //export goSettingsAction
 func goSettingsAction(action, index, value C.int) {
@@ -84,6 +94,9 @@ func settingsInit(sourceLabels, intervalLabels []string) {
 }
 
 func showSettings() { C.wcShowSettings() }
+
+// watchLaunch must run on the main thread before systray.Run.
+func watchLaunch() { C.wcWatchLaunch() }
 
 func settingsSetStatus(title, credit, imagePath string, hasImage, busy, canGoBack bool) {
 	withCString(title, func(t *C.char) {

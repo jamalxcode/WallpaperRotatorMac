@@ -54,6 +54,7 @@ func main() {
 	}
 
 	theApp = a
+	watchLaunch()
 	systray.Run(a.onReady, func() {})
 }
 
@@ -71,7 +72,6 @@ func (a *App) onReady() {
 	a.refreshStatus(false)
 	a.mu.Lock()
 	hasKeys := a.cfg.DeviantArtClientID != ""
-	firstRun := !a.cfg.WelcomeShown
 	a.cfg.WelcomeShown = true
 	a.cfg.save()
 	a.mu.Unlock()
@@ -79,9 +79,6 @@ func (a *App) onReady() {
 		a.refreshDeviant("Keys saved (secret in Keychain).")
 	} else {
 		a.refreshDeviant("Not connected.")
-	}
-	if firstRun {
-		showSettings()
 	}
 
 	watchSpaces()
