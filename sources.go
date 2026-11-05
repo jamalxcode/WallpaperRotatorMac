@@ -191,20 +191,33 @@ func (Wikimedia) Candidates(ctx context.Context) ([]Image, error) {
 func wikimediaBatch(ctx context.Context) ([]Image, error) {
 	hex := fmt.Sprintf("%06x", rand.IntN(0xFFFFFF))
 	q := url.Values{
-		"action":              {"query"},
-		"format":              {"json"},
-		"generator":           {"categorymembers"},
-		"gcmtitle":            {"Category:Featured_pictures_on_Wikimedia_Commons"},
-		"gcmtype":             {"file"},
-		"gcmlimit":            {"30"},
-		"gcmsort":             {"sortkey"},
-		"gcmstarthexsortkey":  {hex},
-		"prop":                {"imageinfo|categories"},
-		"cllimit":             {"max"},
-		"clshow":              {"!hidden"}, // hidden maintenance categories push past the 500 limit
-		"iiprop":              {"url|size|mime|extmetadata"},
-		"iiextmetadatafilter": {"LicenseShortName|ObjectName|Artist"},
-		"iiurlwidth":          {"3840"},
+		"generator":          {"categorymembers"},
+		"gcmtitle":           {"Category:Featured_pictures_on_Wikimedia_Commons"},
+		"gcmtype":            {"file"},
+		"gcmlimit":           {"30"},
+		"gcmsort":            {"sortkey"},
+		"gcmstarthexsortkey": {hex},
+	}
+	return commonsQuery(ctx, q, "Wikimedia Commons", func(texts ...string) bool {
+		return isBlocked(texts...) || isBlockedArt(texts...)
+	})
+}
+
+// commonsQuery runs a Commons API generator query (q supplies the generator
+// params) and turns the results into vetted, public-domain wallpaper candidates.
+// reject is applied to the file name, title and categories.
+func commonsQuery(ctx context.Context, q url.Values, source string, reject func(...string) bool) ([]Image, error) {
+	for k, v := range map[string]string{
+		"action":              "query",
+		"format":              "json",
+		"prop":                "imageinfo|categories",
+		"cllimit":             "max",
+		"clshow":              "!hidden", // hidden maintenance categories push past the 500 limit
+		"iiprop":              "url|size|mime|extmetadata",
+		"iiextmetadatafilter": "LicenseShortName|ObjectName|Artist|ImageDescription",
+		"iiurlwidth":          "3840",
+	} {
+		q.Set(k, v)
 	}
 	var r struct {
 		Query struct {
@@ -243,7 +256,7 @@ func wikimediaBatch(ctx context.Context) ([]Image, error) {
 		if ii.Mime != "image/jpeg" && ii.Mime != "image/png" {
 			continue
 		}
-		if ii.Width < minWidth || float64(ii.Width)/float64(ii.Height) < minAspect || float64(ii.Width)/float64(ii.Height) > maxAspect {
+		if !goodShape(ii.Width, ii.Height) {
 			continue
 		}
 		cats := make([]string, 0, len(*p.Categories))
@@ -257,7 +270,9 @@ func wikimediaBatch(ctx context.Context) ([]Image, error) {
 				title = title[:i]
 			}
 		}
-		if isBlocked(p.Title, title, strings.Join(cats, " ")) || isBlockedArt(p.Title, title, strings.Join(cats, " ")) {
+		desc := stripHTML(ii.Ext["ImageDescription"].Value)
+		title = cleanTitle(title, desc)
+		if reject(p.Title, title, desc, strings.Join(cats, " | ")) {
 			continue
 		}
 		credit := stripHTML(ii.Ext["Artist"].Value)
@@ -274,9 +289,34 @@ func wikimediaBatch(ctx context.Context) ([]Image, error) {
 			Title:   title,
 			Credit:  credit,
 			PageURL: ii.DescriptionURL,
-			Source:  "Wikimedia Commons",
+			Source:  source,
 			urls:    func(context.Context) ([]string, error) { return urls, nil },
 		})
 	}
 	return out, nil
+}
+
+var (
+	flickrSuffix = regexp.MustCompile(`(?i)\s*(\(\d{8,}\)|-\s*flickr\s*-.*|\d{8,}\s*o)\s*$`)
+	codeTitle    = regexp.MustCompile(`^[A-Za-z_-]{0,8}\d[\w-]*$`) // e.g. "Anim1019", "IMG_2041"
+)
+
+// cleanTitle strips Flickr/catalogue noise and falls back to the description's
+// first sentence when the title is just a code.
+func cleanTitle(title, desc string) string {
+	t := strings.TrimSpace(flickrSuffix.ReplaceAllString(title, ""))
+	if t == "" || codeTitle.MatchString(t) {
+		d := desc
+		if i := strings.IndexAny(d, ".;\n"); i > 0 {
+			d = d[:i]
+		}
+		d = strings.TrimSpace(d)
+		if len(d) > 8 && len(d) <= 140 {
+			return d
+		}
+		if t == "" {
+			return title
+		}
+	}
+	return t
 }

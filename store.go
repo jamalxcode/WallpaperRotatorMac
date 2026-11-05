@@ -35,7 +35,7 @@ type Config struct {
 }
 
 func loadConfig() Config {
-	c := Config{IntervalMin: 4, Sources: map[string]bool{"NASA": true, "Wikimedia": true, "Cleveland": true, "Smithsonian": true}}
+	c := Config{IntervalMin: 4, Sources: map[string]bool{"NASA": true, "Wildlife": true, "Wikimedia": true, "Cleveland": true, "Smithsonian": true}}
 	// json.Unmarshal merges into this map, so sources added later default to on.
 	if b, err := os.ReadFile(configPath); err == nil {
 		_ = json.Unmarshal(b, &c)

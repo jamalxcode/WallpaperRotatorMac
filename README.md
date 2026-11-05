@@ -10,7 +10,7 @@ and needs no accounts or API keys.
 - ⚙️ A **Settings window** that opens on first launch, whenever you open the app again
   (Finder, Launchpad, Spotlight), or from the menu's **Settings…**.
 - ⏱ Changes every 4 minutes by default (1, 4, 10, 30 or 60 minutes available).
-- 🌍 Four public-domain / CC0 sources that you can switch on and off individually.
+- 🌍 Five public-domain / CC0 sources that you can switch on and off individually.
 - 🖥 Covers every display. When you switch to another desktop (Space), the latest picture
   is applied there too.
 - 🔁 Doesn't repeat pictures (it remembers the last 2,000).
@@ -21,6 +21,7 @@ and needs no accounts or API keys.
 | Source | What you get | License |
 |---|---|---|
 | [NASA Image Library](https://images.nasa.gov) | Nebulae, galaxies, launches, auroras, Earth from orbit | Public domain |
+| **Wildlife & Nature**: [U.S. Fish & Wildlife Service](https://www.fws.gov), [National Park Service](https://www.nps.gov), [NOAA](https://www.noaa.gov) photos via Wikimedia Commons | Wolves, puffins, whales, coral reefs, lightning, auroras, geysers, national parks | Public domain (US federal works, `PD-USGov-*` tagged) |
 | [Wikimedia Commons Featured Pictures](https://commons.wikimedia.org/wiki/Commons:Featured_pictures) | Award-winning photos of nature, cities, animals | Only Public domain / CC0 files are used |
 | [Cleveland Museum of Art Open Access](https://openaccess-api.clevelandart.org) | Landscape and seascape paintings, prints, early photography | CC0 |
 | [Smithsonian Open Access](https://www.si.edu/openaccess) (American Art Museum) | Hudson River School, the American West | CC0 |
@@ -91,7 +92,7 @@ one place show up in the other.
 |---|---|
 | `main.go` | Menu bar ([fyne.io/systray](https://github.com/fyne-io/systray)), timer, actions shared by menu and window |
 | `settings_darwin.m/.h/.go` | Native Cocoa Settings window and the "app opened again" handling |
-| `sources.go`, `sources_museums.go` | API clients for each source |
+| `sources.go`, `sources_wildlife.go`, `sources_museums.go` | API clients for each source |
 | `fetch.go` | Per-source candidate cache, back-off, download and size checks |
 | `filter.go` | Content blocklists |
 | `wallpaper_darwin.go` | Sets the wallpaper through `NSWorkspace` (cgo / Objective-C) and re-applies it on Space switches |

@@ -22,6 +22,7 @@ var allSources []Source
 
 var sourceLabels = map[string]string{
 	"NASA":        "NASA (space & Earth)",
+	"Wildlife":    "Wildlife & Nature (US Fish & Wildlife, Parks, NOAA)",
 	"Wikimedia":   "Wikimedia Commons (featured photos)",
 	"Cleveland":   "Cleveland Museum of Art (paintings & prints)",
 	"Smithsonian": "Smithsonian American Art (landscapes)",
@@ -56,7 +57,7 @@ func main() {
 	}
 
 	a := &App{cfg: loadConfig(), seen: loadSeen(), reset: make(chan struct{}, 1)}
-	allSources = []Source{NASA{}, Wikimedia{}, ClevelandArt{}, Smithsonian{Key: a.cfg.SmithsonianKey}}
+	allSources = []Source{NASA{}, Wildlife{}, Wikimedia{}, ClevelandArt{}, Smithsonian{Key: a.cfg.SmithsonianKey}}
 
 	if *once {
 		srcs := a.enabledSources()
