@@ -7,6 +7,8 @@ and needs no accounts or API keys.
 
 ## Features
 - 🖼 Menu-bar icon only, with no Dock icon.
+- ⚙️ A **Settings window** that opens on first launch, whenever you open the app again
+  (Finder, Launchpad, Spotlight), or from the menu's **Settings…**.
 - ⏱ Changes every 4 minutes by default (1, 4, 10, 30 or 60 minutes available).
 - 🌍 Four public-domain / CC0 sources that you can switch on and off individually.
 - 🖥 Covers every display. When you switch to another desktop (Space), the latest picture
@@ -57,7 +59,8 @@ To start it automatically, use the menu's **Start at Login**, or go to System Se
 General → Login Items → **+** → WallpaperChanger.
 
 > **Can't see the icon?** On MacBooks with a notch, macOS hides menu-bar icons that don't
-> fit. Remove a few other icons (⌘-drag them off) to make room.
+> fit. Just open the app again to get the Settings window, or remove a few other icons
+> (⌘-drag them off) to make room.
 
 ### Other commands
 ```bash
@@ -66,9 +69,14 @@ make once                                      # change the wallpaper once, no m
 go run . --once --dry --source Cleveland       # test one source without changing the wallpaper
 ```
 
-## Menu
-Current picture & credit · **Next Wallpaper** · **Pause / Resume** · **Open Image Page** ·
-**Save to Pictures** · **Change Every** · **Sources** · **Start at Login** · **Quit**
+## Settings
+Open the app again (from Finder, Launchpad or Spotlight) to bring up the Settings window. It's
+handy when the menu-bar icon is hidden. It shows the current picture and its credit, and has:
+**Next Wallpaper**, **Open Image Page**, **Save to Pictures**, the change interval, the picture
+sources, **Pause** and **Start at login**.
+
+The menu-bar icon has the same options, plus **Settings…** to open the window. Changes made in
+one place show up in the other.
 
 ## Files
 | What | Where |
@@ -81,7 +89,8 @@ Current picture & credit · **Next Wallpaper** · **Pause / Resume** · **Open I
 ## How it works
 | File | Role |
 |---|---|
-| `main.go` | Menu bar ([fyne.io/systray](https://github.com/fyne-io/systray)), timer, menu actions |
+| `main.go` | Menu bar ([fyne.io/systray](https://github.com/fyne-io/systray)), timer, actions shared by menu and window |
+| `settings_darwin.m/.h/.go` | Native Cocoa Settings window and the "app opened again" handling |
 | `sources.go`, `sources_museums.go` | API clients for each source |
 | `fetch.go` | Per-source candidate cache, back-off, download and size checks |
 | `filter.go` | Content blocklists |

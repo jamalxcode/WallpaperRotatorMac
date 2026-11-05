@@ -30,6 +30,8 @@ type Config struct {
 	Sources     map[string]bool `json:"sources"`
 	// Optional free key from https://api.data.gov/signup (DEMO_KEY is used otherwise).
 	SmithsonianKey string `json:"smithsonian_api_key,omitempty"`
+	// Settings window opens automatically on the very first launch.
+	WelcomeShown bool `json:"welcome_shown"`
 }
 
 func loadConfig() Config {

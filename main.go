@@ -80,13 +80,15 @@ func main() {
 		return
 	}
 
-	// single instance
+	// single instance: if already running, ask that copy to show its Settings window
 	lock, err := os.OpenFile(filepath.Join(supportDir, "app.lock"), os.O_CREATE|os.O_RDWR, 0o644)
 	if err == nil && syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) != nil {
-		log.Print("already running; exiting")
+		log.Print("already running; asking it to show Settings")
+		askRunningInstanceToShowSettings()
 		return
 	}
 
+	theApp = a
 	systray.Run(a.onReady, func() {})
 }
 
@@ -98,6 +100,16 @@ func (a *App) enabledSources() []Source {
 		}
 	}
 	return out
+}
+
+func intervalLabel(m int) string {
+	switch m {
+	case 1:
+		return "1 minute"
+	case 60:
+		return "1 hour"
+	}
+	return fmt.Sprintf("%d minutes", m)
 }
 
 func (a *App) onReady() {
@@ -117,50 +129,49 @@ func (a *App) onReady() {
 
 	mEvery := systray.AddMenuItem("Change Every", "")
 	a.mIntervals = map[int]*systray.MenuItem{}
+	var intervalLabels []string
 	for _, m := range intervals {
-		label := fmt.Sprintf("%d minutes", m)
-		if m == 1 {
-			label = "1 minute"
-		} else if m == 60 {
-			label = "1 hour"
-		}
-		a.mIntervals[m] = mEvery.AddSubMenuItemCheckbox(label, "", m == a.cfg.IntervalMin)
+		a.mIntervals[m] = mEvery.AddSubMenuItemCheckbox(intervalLabel(m), "", false)
+		intervalLabels = append(intervalLabels, intervalLabel(m))
 	}
 	mSrc := systray.AddMenuItem("Sources", "")
 	a.mSources = map[string]*systray.MenuItem{}
+	var srcLabels []string
 	for _, s := range allSources {
-		label := sourceLabels[s.Name()]
-		a.mSources[s.Name()] = mSrc.AddSubMenuItemCheckbox(label, "", a.cfg.Sources[s.Name()])
+		a.mSources[s.Name()] = mSrc.AddSubMenuItemCheckbox(sourceLabels[s.Name()], "", false)
+		srcLabels = append(srcLabels, sourceLabels[s.Name()])
 	}
-	a.mLogin = systray.AddMenuItemCheckbox("Start at Login", "", loginEnabled())
+	a.mLogin = systray.AddMenuItemCheckbox("Start at Login", "", false)
+	mSettings := systray.AddMenuItem("Settings…", "Open the Settings window")
 	systray.AddSeparator()
 	mQuit := systray.AddMenuItem("Quit", "")
 
-	a.refreshPause()
 	a.mOpen.Disable()
 	a.mSave.Disable()
 
+	settingsInit(srcLabels, intervalLabels)
+	a.syncUI()
+	a.setStatus("Starting…", "", false)
+
+	a.mu.Lock()
+	firstRun := !a.cfg.WelcomeShown
+	a.cfg.WelcomeShown = true
+	a.cfg.save()
+	a.mu.Unlock()
+	if firstRun {
+		showSettings()
+	}
+
 	watchSpaces()
-	go a.handleClicks(mQuit)
+	go a.handleClicks(mSettings, mQuit)
 	go a.loop()
 }
 
-func (a *App) handleClicks(mQuit *systray.MenuItem) {
+func (a *App) handleClicks(mSettings, mQuit *systray.MenuItem) {
 	for m, item := range a.mIntervals {
 		go func() {
 			for range item.ClickedCh {
-				a.mu.Lock()
-				a.cfg.IntervalMin = m
-				a.cfg.save()
-				a.mu.Unlock()
-				for mm, it := range a.mIntervals {
-					if mm == m {
-						it.Check()
-					} else {
-						it.Uncheck()
-					}
-				}
-				a.kick()
+				a.setInterval(m)
 			}
 		}()
 	}
@@ -169,49 +180,144 @@ func (a *App) handleClicks(mQuit *systray.MenuItem) {
 			for range item.ClickedCh {
 				a.mu.Lock()
 				on := !a.cfg.Sources[name]
-				a.cfg.Sources[name] = on
-				a.cfg.save()
 				a.mu.Unlock()
-				if on {
-					item.Check()
-				} else {
-					item.Uncheck()
-				}
+				a.setSource(name, on)
 			}
 		}()
 	}
 	for {
 		select {
 		case <-a.mNext.ClickedCh:
-			go a.change()
-			a.kick()
+			a.next()
 		case <-a.mPause.ClickedCh:
 			a.mu.Lock()
-			a.cfg.Paused = !a.cfg.Paused
-			a.cfg.save()
+			p := !a.cfg.Paused
 			a.mu.Unlock()
-			a.refreshPause()
-			a.kick()
+			a.setPaused(p)
 		case <-a.mOpen.ClickedCh:
-			if u := a.cur().PageURL; u != "" {
-				_ = exec.Command("open", u).Start()
-			}
+			a.openPage()
 		case <-a.mSave.ClickedCh:
 			a.saveCurrent()
 		case <-a.mLogin.ClickedCh:
-			on := !a.mLogin.Checked()
-			if err := setLogin(on); err != nil {
-				log.Print("login item: ", err)
-			} else if on {
-				a.mLogin.Check()
-			} else {
-				a.mLogin.Uncheck()
-			}
+			a.setLoginOn(!loginEnabled())
+		case <-mSettings.ClickedCh:
+			showSettings()
 		case <-mQuit.ClickedCh:
-			systray.Quit()
+			a.quit()
 			return
 		}
 	}
+}
+
+// ---- actions shared by the menu and the Settings window
+
+func (a *App) next() {
+	go a.change()
+	a.kick()
+}
+
+func (a *App) openPage() {
+	if u := a.cur().PageURL; u != "" {
+		_ = exec.Command("open", u).Start()
+	}
+}
+
+func (a *App) setInterval(m int) {
+	a.mu.Lock()
+	a.cfg.IntervalMin = m
+	a.cfg.save()
+	a.mu.Unlock()
+	a.syncUI()
+	a.kick()
+}
+
+func (a *App) setSource(name string, on bool) {
+	a.mu.Lock()
+	a.cfg.Sources[name] = on
+	a.cfg.save()
+	a.mu.Unlock()
+	a.syncUI()
+}
+
+func (a *App) setPaused(p bool) {
+	a.mu.Lock()
+	a.cfg.Paused = p
+	a.cfg.save()
+	a.mu.Unlock()
+	a.syncUI()
+	a.kick()
+}
+
+func (a *App) setLoginOn(on bool) {
+	if err := setLogin(on); err != nil {
+		log.Print("login item: ", err)
+	}
+	a.syncUI()
+}
+
+func (a *App) quit() { systray.Quit() }
+
+// syncUI pushes settings into both the menu and the Settings window.
+func (a *App) syncUI() {
+	a.mu.Lock()
+	interval, paused := a.cfg.IntervalMin, a.cfg.Paused
+	enabled := map[string]bool{}
+	for k, v := range a.cfg.Sources {
+		enabled[k] = v
+	}
+	a.mu.Unlock()
+	login := loginEnabled()
+
+	intervalIdx := -1
+	for i, m := range intervals {
+		if m == interval {
+			intervalIdx = i
+			a.mIntervals[m].Check()
+		} else {
+			a.mIntervals[m].Uncheck()
+		}
+	}
+	mask := 0
+	for i, s := range allSources {
+		if enabled[s.Name()] {
+			mask |= 1 << i
+			a.mSources[s.Name()].Check()
+		} else {
+			a.mSources[s.Name()].Uncheck()
+		}
+	}
+	if login {
+		a.mLogin.Check()
+	} else {
+		a.mLogin.Uncheck()
+	}
+	if paused {
+		a.mPause.SetTitle("Resume")
+		systray.SetTooltip("Wallpaper Changer (paused)")
+	} else {
+		a.mPause.SetTitle("Pause")
+		systray.SetTooltip("Wallpaper Changer")
+	}
+	settingsSetState(intervalIdx, mask, paused, login)
+}
+
+// setStatus shows what's on screen (or what's happening) in the menu and window.
+func (a *App) setStatus(title, credit string, busy bool) {
+	a.mInfo.SetTitle(trunc(title, 55))
+	a.mCredit.SetTitle(trunc(credit, 55))
+	if busy {
+		a.mNext.Disable()
+	} else {
+		a.mNext.Enable()
+	}
+	a.mu.Lock()
+	has := a.curPath != ""
+	a.mu.Unlock()
+	if has {
+		a.mOpen.Enable()
+		a.mSave.Enable()
+	}
+	settingsSetStatus(title, credit, has, busy)
 }
 
 func (a *App) kick() {
@@ -223,24 +329,21 @@ func (a *App) kick() {
 
 func (a *App) cur() Image { a.mu.Lock(); defer a.mu.Unlock(); return a.current }
 
-func (a *App) refreshPause() {
-	a.mu.Lock()
-	p := a.cfg.Paused
-	a.mu.Unlock()
-	if p {
-		a.mPause.SetTitle("Resume")
-		systray.SetTooltip("Wallpaper Changer (paused)")
-	} else {
-		a.mPause.SetTitle("Pause")
-		systray.SetTooltip("Wallpaper Changer")
+func creditLine(img Image) string {
+	if img.Credit != "" && img.Credit != img.Source {
+		return img.Credit + " · " + img.Source
 	}
+	return img.Source
 }
 
 func (a *App) loop() {
-	if !a.cfg.Paused {
+	a.mu.Lock()
+	paused := a.cfg.Paused
+	a.mu.Unlock()
+	if !paused {
 		a.change()
 	} else {
-		a.mInfo.SetTitle("Paused")
+		a.setStatus("Paused", "Untick “Pause” to start changing wallpapers.", false)
 	}
 	for {
 		a.mu.Lock()
@@ -267,10 +370,8 @@ func (a *App) change() {
 	}
 	defer a.busy.Store(false)
 
-	prevTitle := a.cur().Title
-	a.mInfo.SetTitle("Finding a new picture…")
-	a.mNext.Disable()
-	defer a.mNext.Enable()
+	prev := a.cur()
+	a.setStatus("Finding a new picture…", "", true)
 
 	a.mu.Lock()
 	srcs := a.enabledSources()
@@ -284,10 +385,12 @@ func (a *App) change() {
 	}
 	if err != nil {
 		log.Print("change failed: ", err)
-		if prevTitle != "" {
-			a.mInfo.SetTitle(trunc(prevTitle, 55))
+		if prev.Title != "" {
+			a.setStatus(prev.Title, creditLine(prev), false)
+		} else if len(srcs) == 0 {
+			a.setStatus("No sources selected", "Tick at least one picture source.", false)
 		} else {
-			a.mInfo.SetTitle("Couldn't fetch a picture (will retry)")
+			a.setStatus("Couldn't fetch a picture", "Will try again at the next change.", false)
 		}
 		return
 	}
@@ -296,14 +399,7 @@ func (a *App) change() {
 	a.mu.Lock()
 	a.current, a.curPath = img, path
 	a.mu.Unlock()
-	a.mInfo.SetTitle(trunc(img.Title, 55))
-	credit := img.Source
-	if img.Credit != "" && img.Credit != img.Source {
-		credit = img.Credit + " · " + img.Source
-	}
-	a.mCredit.SetTitle(trunc(credit, 55))
-	a.mOpen.Enable()
-	a.mSave.Enable()
+	a.setStatus(img.Title, creditLine(img), false)
 	pruneCache(keepInCache)
 }
 
