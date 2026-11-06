@@ -24,9 +24,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" build/WallpaperRotator-*.zip \
+          # A copy with a fixed name, so .../releases/latest/download/WallpaperRotator.zip
+          # always gets the newest version.
+          cp build/WallpaperRotator-*.zip build/WallpaperRotator.zip
+          # GitHub's API sometimes answers 500; try a few times.
+          for i in 1 2 3; do
+            gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && gh release delete "$GITHUB_REF_NAME" --yes
+            gh release create "$GITHUB_REF_NAME" build/WallpaperRotator-*.zip build/WallpaperRotator.zip \
             --title "Wallpaper Rotator ${GITHUB_REF_NAME#v}" \
             --generate-notes \
-            --notes "Download **WallpaperRotator-${GITHUB_REF_NAME#v}.zip**, unzip it and drag **WallpaperRotator.app** to Applications.
+            --notes "Download **WallpaperRotator.zip** (or the versioned copy), unzip it and drag **WallpaperRotator.app** to Applications.
 
-          The app is not notarized by Apple, so the first time you open it macOS will block it: go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**. Requires macOS 13 or later (Apple silicon or Intel)."
+          The app is not notarized by Apple, so the first time you open it macOS will block it: go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**. Requires macOS 13 or later (Apple silicon or Intel)." && exit 0
+            sleep 20
+          done
+          exit 1

@@ -16,9 +16,9 @@ landscape paintings from museum collections, and optionally art from DeviantArt.
 
 ## Install
 
-**Download:** grab `WallpaperRotator-x.y.z.zip` from the
-[latest release](https://github.com/jamalxcode/WallpaperRotatorMac/releases/latest), unzip it, and
-drag **WallpaperRotator.app** to Applications. It's a universal app (Apple silicon and Intel) and
+**[⬇ Download Wallpaper Rotator](https://github.com/jamalxcode/WallpaperRotatorMac/releases/latest/download/WallpaperRotator.zip)**
+(always the newest version), unzip it, and drag **WallpaperRotator.app** to Applications. Older
+versions are on the [releases page](https://github.com/jamalxcode/WallpaperRotatorMac/releases). It's a universal app (Apple silicon and Intel) and
 needs macOS 13 or later.
 
 The app isn't notarized by Apple (that needs a paid developer account), so the first time you open
