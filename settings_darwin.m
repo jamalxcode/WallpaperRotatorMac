@@ -1,4 +1,5 @@
 #import <Cocoa/Cocoa.h>
+#import <objc/runtime.h>
 #include "settings_darwin.h"
 #include "_cgo_export.h"
 
@@ -217,6 +218,8 @@ static void fixedWidth(NSView *v, CGFloat w) { [v.widthAnchor constraintEqualToC
 	                                              defer:NO];
 	self.window.title = @"Wallpaper Rotator";
 	self.window.releasedWhenClosed = NO;
+	// Always open on the desktop (Space) the user is looking at, not the one it was last on.
+	self.window.collectionBehavior = NSWindowCollectionBehaviorMoveToActiveSpace;
 	self.window.delegate = self;
 	self.window.contentView = stack;
 	[self apply];
@@ -277,6 +280,11 @@ static void fixedWidth(NSView *v, CGFloat w) { [v.widthAnchor constraintEqualToC
 - (void)openPage:(id)s { goSettingsAction(WCActionOpenPage, 0, 0); }
 - (void)save:(id)s { goSettingsAction(WCActionSave, 0, 0); }
 - (void)quit:(id)s { goSettingsAction(WCActionQuit, 0, 0); }
+- (void)openSettings:(id)s { [self show]; }
+- (void)about:(id)s {
+	[NSApp orderFrontStandardAboutPanel:nil];
+	[NSApp activateIgnoringOtherApps:YES];
+}
 - (void)interval:(NSPopUpButton *)p { goSettingsAction(WCActionInterval, (int)p.indexOfSelectedItem, 0); }
 - (void)weight:(NSSlider *)s {
 	int w = (int)s.integerValue;
@@ -353,6 +361,72 @@ void wcWatchLaunch(void) {
 	            }];
 }
 
+// ---- menus: the app menu at the top of the screen and the Dock icon menu ----
+
+static NSMenuItem *menuItem(NSString *title, SEL action, NSString *key, id target) {
+	NSMenuItem *it = [[NSMenuItem alloc] initWithTitle:title action:action keyEquivalent:key ?: @""];
+	it.target = target;
+	return it;
+}
+
+static NSMenu *gDockMenu;
+
+// The app delegate belongs to the systray library, so the Dock menu method is
+// added to its class at runtime.
+static NSMenu *dockMenuIMP(id self, SEL _cmd, NSApplication *app) { return gDockMenu; }
+
+static void installMenus(WCController *c) {
+	NSString *name = @"Wallpaper Rotator";
+	NSMenu *main = [[NSMenu alloc] init];
+
+	NSMenu *appMenu = [[NSMenu alloc] initWithTitle:name];
+	[appMenu addItem:menuItem([@"About " stringByAppendingString:name], @selector(about:), nil, c)];
+	[appMenu addItem:NSMenuItem.separatorItem];
+	[appMenu addItem:menuItem(@"Settings…", @selector(openSettings:), @",", c)];
+	[appMenu addItem:NSMenuItem.separatorItem];
+	[appMenu addItem:menuItem([@"Hide " stringByAppendingString:name], @selector(hide:), @"h", nil)];
+	NSMenuItem *others = menuItem(@"Hide Others", @selector(hideOtherApplications:), @"h", nil);
+	others.keyEquivalentModifierMask = NSEventModifierFlagCommand | NSEventModifierFlagOption;
+	[appMenu addItem:others];
+	[appMenu addItem:menuItem(@"Show All", @selector(unhideAllApplications:), nil, nil)];
+	[appMenu addItem:NSMenuItem.separatorItem];
+	[appMenu addItem:menuItem([@"Quit " stringByAppendingString:name], @selector(quit:), @"q", c)];
+	NSMenuItem *appItem = [[NSMenuItem alloc] init];
+	appItem.submenu = appMenu;
+	[main addItem:appItem];
+
+	NSMenu *edit = [[NSMenu alloc] initWithTitle:@"Edit"];
+	[edit addItem:menuItem(@"Undo", @selector(undo:), @"z", nil)];
+	[edit addItem:NSMenuItem.separatorItem];
+	[edit addItem:menuItem(@"Cut", @selector(cut:), @"x", nil)];
+	[edit addItem:menuItem(@"Copy", @selector(copy:), @"c", nil)];
+	[edit addItem:menuItem(@"Paste", @selector(paste:), @"v", nil)];
+	[edit addItem:menuItem(@"Select All", @selector(selectAll:), @"a", nil)];
+	NSMenuItem *editItem = [[NSMenuItem alloc] init];
+	editItem.submenu = edit;
+	[main addItem:editItem];
+
+	NSMenu *win = [[NSMenu alloc] initWithTitle:@"Window"];
+	[win addItem:menuItem(@"Settings…", @selector(openSettings:), nil, c)];
+	[win addItem:NSMenuItem.separatorItem];
+	[win addItem:menuItem(@"Minimize", @selector(performMiniaturize:), @"m", nil)];
+	[win addItem:menuItem(@"Close", @selector(performClose:), @"w", nil)];
+	NSMenuItem *winItem = [[NSMenuItem alloc] init];
+	winItem.submenu = win;
+	[main addItem:winItem];
+	NSApp.windowsMenu = win;
+
+	NSApp.mainMenu = main;
+
+	gDockMenu = [[NSMenu alloc] init];
+	[gDockMenu addItem:menuItem(@"Settings…", @selector(openSettings:), nil, c)];
+	[gDockMenu addItem:menuItem(@"Next Picture", @selector(next:), nil, c)];
+	id delegate = NSApp.delegate;
+	if (delegate) {
+		class_addMethod([delegate class], @selector(applicationDockMenu:), (IMP)dockMenuIMP, "@@:@");
+	}
+}
+
 void wcInit(const char *sourceLabels, const char *intervalLabels) {
 	NSArray *src = [str(sourceLabels) componentsSeparatedByString:@"\n"];
 	NSArray *iv = [str(intervalLabels) componentsSeparatedByString:@"\n"];
@@ -362,6 +436,7 @@ void wcInit(const char *sourceLabels, const char *intervalLabels) {
 		gController.sourceLabels = src;
 		gController.intervalLabels = iv;
 		gController.intervalIndex = -1;
+		installMenus(gController);
 		if (gShowWhenReady) dispatch_async(dispatch_get_main_queue(), ^{ [gController show]; });
 	});
 }

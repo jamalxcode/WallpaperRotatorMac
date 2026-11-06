@@ -37,6 +37,8 @@ make install    # builds WallpaperRotator.app, copies it to /Applications, opens
 The **Settings window** opens whenever you start the app yourself (Finder, Launchpad, Spotlight),
 when you click its Dock icon, or when you choose **Settings…** from the menu-bar icon. It stays
 hidden when macOS starts the app at login. The app also shows in the Dock, ⌘-Tab and Force Quit.
+You can also choose **Wallpaper Rotator → Settings…** (⌘,) from the menu at the top of the screen,
+or right-click the Dock icon. The window always opens on the desktop you're using.
 
 - A preview of the current picture with its title and credit
 - **◀ Previous**, **Next ▶**, and **Never Show Again** (hides that picture forever and moves on)
