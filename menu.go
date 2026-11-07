@@ -1,8 +1,12 @@
 package main
 
 import (
+	"os/exec"
+
 	"fyne.io/systray"
 )
+
+const siteURL = "https://go.sala.company"
 
 // Menu is the menu-bar icon's menu. It only displays state and forwards
 // clicks to App; App.syncUI / refreshStatus keep it current.
@@ -15,10 +19,15 @@ type Menu struct {
 func quitApp() { systray.Quit() }
 
 func buildMenu(a *App) *Menu {
-	systray.SetTemplateIcon(menuIcon(), menuIcon())
+	icon := menuIcon()
+	systray.SetIcon(icon)
 	systray.SetTooltip(appName)
 
 	m := &Menu{intervals: map[int]*systray.MenuItem{}, sources: map[string]*systray.MenuItem{}}
+	title := systray.AddMenuItem("WallpaperRotate", "Open the Settings window")
+	title.SetIcon(icon)
+	site := systray.AddMenuItem("from go.sala.company", "Open "+siteURL)
+	systray.AddSeparator()
 	m.info = systray.AddMenuItem("Starting…", "")
 	m.info.Disable()
 	m.credit = systray.AddMenuItem("", "")
@@ -72,6 +81,10 @@ func buildMenu(a *App) *Menu {
 	go func() {
 		for {
 			select {
+			case <-title.ClickedCh:
+				showSettings()
+			case <-site.ClickedCh:
+				_ = exec.Command("open", siteURL).Start()
 			case <-m.next.ClickedCh:
 				a.Next()
 			case <-m.prev.ClickedCh:
