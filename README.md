@@ -50,6 +50,10 @@ or right-click the Dock icon. The window always opens on the desktop you're usin
 
 The menu-bar icon has the same main actions.
 
+**Updates:** choose **Check for Updates…** from the Wallpaper Rotator menu, the menu-bar icon, or
+the Dock icon. It asks GitHub for the latest release and, if there's a newer one, can download it,
+replace the app and restart. Your settings, history and saved pictures are kept.
+
 > **Can't see the menu-bar icon?** On MacBooks with a notch, macOS hides icons that don't fit.
 > Click the Dock icon to get the Settings window, or ⌘-drag other icons off the menu bar.
 

@@ -41,6 +41,7 @@ func buildMenu(a *App) *Menu {
 	}
 	m.login = systray.AddMenuItemCheckbox("Start at Login", "", false)
 	settings := systray.AddMenuItem("Settings…", "Open the Settings window")
+	updates := systray.AddMenuItem("Check for Updates…", "See if a newer version is on GitHub")
 	systray.AddSeparator()
 	quit := systray.AddMenuItem("Quit", "")
 
@@ -90,6 +91,8 @@ func buildMenu(a *App) *Menu {
 				go a.SetLogin(loginStatus() != LoginOn)
 			case <-settings.ClickedCh:
 				showSettings()
+			case <-updates.ClickedCh:
+				go a.CheckForUpdates()
 			case <-quit.ClickedCh:
 				a.Quit()
 				return

@@ -281,6 +281,7 @@ static void fixedWidth(NSView *v, CGFloat w) { [v.widthAnchor constraintEqualToC
 - (void)save:(id)s { goSettingsAction(WCActionSave, 0, 0); }
 - (void)quit:(id)s { goSettingsAction(WCActionQuit, 0, 0); }
 - (void)openSettings:(id)s { [self show]; }
+- (void)checkUpdates:(id)s { goSettingsAction(WCActionCheckUpdates, 0, 0); }
 - (void)about:(id)s {
 	[NSApp orderFrontStandardAboutPanel:nil];
 	[NSApp activateIgnoringOtherApps:YES];
@@ -381,6 +382,7 @@ static void installMenus(WCController *c) {
 
 	NSMenu *appMenu = [[NSMenu alloc] initWithTitle:name];
 	[appMenu addItem:menuItem([@"About " stringByAppendingString:name], @selector(about:), nil, c)];
+	[appMenu addItem:menuItem(@"Check for Updates…", @selector(checkUpdates:), nil, c)];
 	[appMenu addItem:NSMenuItem.separatorItem];
 	[appMenu addItem:menuItem(@"Settings…", @selector(openSettings:), @",", c)];
 	[appMenu addItem:NSMenuItem.separatorItem];
@@ -421,6 +423,7 @@ static void installMenus(WCController *c) {
 	gDockMenu = [[NSMenu alloc] init];
 	[gDockMenu addItem:menuItem(@"Settings…", @selector(openSettings:), nil, c)];
 	[gDockMenu addItem:menuItem(@"Next Picture", @selector(next:), nil, c)];
+	[gDockMenu addItem:menuItem(@"Check for Updates…", @selector(checkUpdates:), nil, c)];
 	id delegate = NSApp.delegate;
 	if (delegate) {
 		class_addMethod([delegate class], @selector(applicationDockMenu:), (IMP)dockMenuIMP, "@@:@");
@@ -515,3 +518,28 @@ void wcPostShowToRunningInstance(void) {
 	                                                             userInfo:nil
 	                                                   deliverImmediately:YES];
 }
+
+int wcAlert(const char *title, const char *message, const char *b1, const char *b2, const char *b3) {
+	NSString *t = str(title), *m = str(message);
+	NSMutableArray<NSString *> *buttons = [NSMutableArray array];
+	if (b1) [buttons addObject:str(b1)];
+	if (b2) [buttons addObject:str(b2)];
+	if (b3) [buttons addObject:str(b3)];
+	__block NSModalResponse r = NSAlertFirstButtonReturn;
+	dispatch_sync(dispatch_get_main_queue(), ^{
+		NSAlert *a = [[NSAlert alloc] init];
+		a.messageText = t;
+		a.informativeText = m;
+		for (NSString *b in buttons) [a addButtonWithTitle:b];
+		[NSApp activateIgnoringOtherApps:YES];
+		r = [a runModal];
+	});
+	return (int)(r - NSAlertFirstButtonReturn) + 1;
+}
+
+char *wcAppVersion(void) {
+	NSString *v = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
+	return strdup((v ?: @"").UTF8String);
+}
+
+char *wcBundlePath(void) { return strdup(NSBundle.mainBundle.bundlePath.UTF8String ?: ""); }

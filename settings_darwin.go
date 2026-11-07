@@ -64,6 +64,8 @@ func goSettingsAction(action, index, value C.int) {
 			a.SetSkipAI(on)
 		case C.WCActionQuit:
 			a.Quit()
+		case C.WCActionCheckUpdates:
+			a.CheckForUpdates()
 		}
 	}()
 }
@@ -133,3 +135,35 @@ func settingsSetDeviantStatus(status string) {
 }
 
 func askRunningInstanceToShowSettings() { C.wcPostShowToRunningInstance() }
+
+// alert shows a modal alert from a background goroutine and returns the
+// 1-based index of the button pressed.
+func alert(title, message string, buttons ...string) int {
+	cs := make([]*C.char, 3)
+	for i := 0; i < 3 && i < len(buttons); i++ {
+		cs[i] = C.CString(buttons[i])
+		defer C.free(unsafe.Pointer(cs[i]))
+	}
+	var r C.int
+	withCString(title, func(t *C.char) {
+		withCString(message, func(m *C.char) {
+			r = C.wcAlert(t, m, cs[0], cs[1], cs[2])
+		})
+	})
+	return int(r)
+}
+
+func takeCString(p *C.char) string {
+	defer C.free(unsafe.Pointer(p))
+	return C.GoString(p)
+}
+
+// appVersion is the bundle's version, or "0" when not running from the app.
+func appVersion() string {
+	if v := takeCString(C.wcAppVersion()); v != "" {
+		return v
+	}
+	return "0"
+}
+
+func bundlePath() string { return takeCString(C.wcBundlePath()) }

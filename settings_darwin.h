@@ -16,12 +16,19 @@ enum {
 	WCActionPrevious = 10,
 	WCActionBan = 11,        // never show the current picture again
 	WCActionKeepRunning = 12, // value = keep changing on Low Power Mode / hotspot
+	WCActionCheckUpdates = 13,
 };
 
 // Labels are newline-separated. All functions are safe to call from any thread.
 void wcInit(const char *sourceLabels, const char *intervalLabels);
 void wcShowSettings(void);
 void wcWatchLaunch(void);
+// Modal alert with up to three buttons (pass NULL for unused ones); returns 1..3.
+// Must not be called on the main thread.
+int wcAlert(const char *title, const char *message, const char *b1, const char *b2, const char *b3);
+// CFBundleShortVersionString and the bundle path; the caller frees the strings.
+char *wcAppVersion(void);
+char *wcBundlePath(void);
 void wcSetStatus(const char *title, const char *credit, const char *imagePath, int hasImage, int busy,
                  int canGoBack);
 // weights: comma-separated 0..5 per source. login: 0 off, 1 on, 2 needs approval, 3 unavailable.
