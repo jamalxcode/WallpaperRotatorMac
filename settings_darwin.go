@@ -66,6 +66,8 @@ func goSettingsAction(action, index, value C.int) {
 			a.Quit()
 		case C.WCActionCheckUpdates:
 			a.CheckForUpdates()
+		case C.WCActionPresence:
+			a.SetPresence(i != 0, on)
 		}
 	}()
 }
@@ -95,7 +97,11 @@ func settingsInit(sourceLabels, intervalLabels []string) {
 	C.wcInstallReopenHandlers()
 }
 
-func showSettings() { C.wcShowSettings() }
+// showSettings opens the window on the settings tab used last; showMain on the current picture.
+func showSettings() { C.wcShow(-1) }
+func showMain()     { C.wcShow(0) }
+
+func settingsSetPresence(menuBar, dock bool) { C.wcSetPresence(cbool(menuBar), cbool(dock)) }
 
 // watchLaunch must run on the main thread before systray.Run.
 func watchLaunch() { C.wcWatchLaunch() }

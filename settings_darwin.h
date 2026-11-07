@@ -17,11 +17,15 @@ enum {
 	WCActionBan = 11,        // never show the current picture again
 	WCActionKeepRunning = 12, // value = keep changing on Low Power Mode / hotspot
 	WCActionCheckUpdates = 13,
+	WCActionPresence = 14,   // index = show in menu bar, value = show in Dock
 };
 
 // Labels are newline-separated. All functions are safe to call from any thread.
 void wcInit(const char *sourceLabels, const char *intervalLabels);
-void wcShowSettings(void);
+// pane: 0 = current picture, -1 = the settings tab used last.
+void wcShow(int pane);
+// Show or hide the menu-bar icon and the Dock icon (at least one should be on).
+void wcSetPresence(int menuBar, int dock);
 void wcWatchLaunch(void);
 // Modal alert with up to three buttons (pass NULL for unused ones); returns 1..3.
 // Must not be called on the main thread.

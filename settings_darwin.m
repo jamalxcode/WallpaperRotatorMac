@@ -8,13 +8,18 @@ static NSArray<NSString *> *weightNames(void) {
 	return @[ @"Off", @"Rarely", @"Sometimes", @"Normal", @"Often", @"Very often" ];
 }
 
-// Menu-bar-only apps have no main menu, so standard shortcuts don't work by
-// default. Handle the essentials here.
+// Without a Dock icon the app's main menu isn't on screen, so make sure the
+// standard shortcuts still work in the window.
 @interface WCWindow : NSWindow
 @end
 @implementation WCWindow
 - (BOOL)performKeyEquivalent:(NSEvent *)e {
 	NSEventModifierFlags m = e.modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask;
+	if (m == (NSEventModifierFlagCommand | NSEventModifierFlagShift) &&
+	    [e.charactersIgnoringModifiers.lowercaseString isEqualToString:@"z"] &&
+	    [NSApp sendAction:@selector(redo:) to:nil from:self]) {
+		return YES;
+	}
 	if (m == NSEventModifierFlagCommand) {
 		NSString *k = e.charactersIgnoringModifiers.lowercaseString;
 		SEL sel = NULL;
@@ -25,6 +30,7 @@ static NSArray<NSString *> *weightNames(void) {
 		if ([k isEqualToString:@"v"]) sel = @selector(paste:);
 		if ([k isEqualToString:@"a"]) sel = @selector(selectAll:);
 		if ([k isEqualToString:@"z"]) sel = @selector(undo:);
+		if ([k isEqualToString:@","]) sel = @selector(openSettings:); // reaches the window's delegate
 		if (sel && [NSApp sendAction:sel to:nil from:self]) return YES;
 	}
 	return [super performKeyEquivalent:e];
@@ -44,6 +50,11 @@ static NSArray<NSString *> *weightNames(void) {
 @property(strong) NSTextField *daIDField, *daStatusLabel;
 @property(strong) NSSecureTextField *daSecretField;
 @property(strong) NSButton *daSkipAIBox;
+@property(strong) NSButton *menuBarBox, *dockBox;
+@property(strong) NSSegmentedControl *paneControl;
+@property(strong) NSArray<NSStackView *> *panes;
+@property NSInteger lastSettingsPane;
+@property int showMenuBar, showDock;
 // last known state, applied whenever the window is (re)built or updated
 @property(copy) NSString *statusTitle, *statusCredit, *imagePath, *shownImagePath, *note;
 @property(copy) NSArray<NSNumber *> *weights;
@@ -77,6 +88,15 @@ static NSStackView *row(NSArray<NSView *> *views) {
 
 static void fixedWidth(NSView *v, CGFloat w) { [v.widthAnchor constraintEqualToConstant:w].active = YES; }
 
+static NSStackView *pane(NSArray<NSView *> *views) {
+	NSStackView *s = [NSStackView stackViewWithViews:views];
+	s.orientation = NSUserInterfaceLayoutOrientationVertical;
+	s.alignment = NSLayoutAttributeLeading;
+	s.spacing = 10;
+	s.edgeInsets = NSEdgeInsetsMake(0, 20, 0, 20);
+	return s;
+}
+
 @implementation WCController
 
 - (NSButton *)button:(NSString *)title action:(SEL)sel {
@@ -92,12 +112,14 @@ static void fixedWidth(NSView *v, CGFloat w) { [v.widthAnchor constraintEqualToC
 - (void)buildWindow {
 	const CGFloat width = 480, pad = 20, inner = width - 2 * pad;
 
+	// ---- Now Showing
 	self.thumb = [[NSImageView alloc] init];
 	self.thumb.imageScaling = NSImageScaleProportionallyUpOrDown;
 	self.thumb.wantsLayer = YES;
 	self.thumb.layer.cornerRadius = 8;
 	self.thumb.layer.masksToBounds = YES;
 	self.thumb.layer.backgroundColor = NSColor.quaternaryLabelColor.CGColor;
+	self.thumb.accessibilityLabel = @"Current wallpaper";
 	fixedWidth(self.thumb, inner);
 	[self.thumb.heightAnchor constraintEqualToConstant:round(inner * 9 / 16)].active = YES;
 
@@ -107,20 +129,42 @@ static void fixedWidth(NSView *v, CGFloat w) { [v.widthAnchor constraintEqualToC
 	self.creditLabel.preferredMaxLayoutWidth = inner;
 
 	self.prevButton = [self button:@"◀ Previous" action:@selector(previous:)];
+	self.prevButton.accessibilityLabel = @"Previous Wallpaper";
 	self.nextButton = [self button:@"Next ▶" action:@selector(next:)];
+	self.nextButton.accessibilityLabel = @"Next Wallpaper";
 	self.nextButton.keyEquivalent = @"\r";
-	self.banButton = [self button:@"Never Show Again" action:@selector(ban:)];
+	self.banButton = [self button:@"Never Show This Again" action:@selector(ban:)];
 	self.openButton = [self button:@"Open Image Page" action:@selector(openPage:)];
 	self.saveButton = [self button:@"Save to Pictures" action:@selector(save:)];
+	self.pauseBox = [self checkbox:@"Pause automatic changes" action:@selector(pause:)];
+	self.noteLabel = label(@"", 11, NO, NSColor.systemOrangeColor);
+	self.noteLabel.preferredMaxLayoutWidth = inner;
 
+	NSStackView *nowPane = pane(@[
+		self.thumb,
+		self.titleLabel,
+		self.creditLabel,
+		row(@[ self.prevButton, self.nextButton, self.banButton ]),
+		row(@[ self.openButton, self.saveButton ]),
+		self.pauseBox,
+		self.noteLabel,
+	]);
+	[nowPane setCustomSpacing:4 afterView:self.titleLabel];
+	[nowPane setCustomSpacing:12 afterView:self.creditLabel];
+
+	// ---- Sources
 	self.intervalPopup = [[NSPopUpButton alloc] initWithFrame:NSZeroRect pullsDown:NO];
 	[self.intervalPopup addItemsWithTitles:self.intervalLabels];
 	self.intervalPopup.target = self;
 	self.intervalPopup.action = @selector(interval:);
+	self.intervalPopup.accessibilityLabel = @"Change every";
 
 	self.weightSliders = [NSMutableArray array];
 	self.weightLabels = [NSMutableArray array];
-	NSMutableArray<NSView *> *sourceRows = [NSMutableArray array];
+	NSMutableArray<NSView *> *sourceViews = [NSMutableArray arrayWithArray:@[
+		row(@[ label(@"Change every", 13, NO, NSColor.labelColor), self.intervalPopup ]),
+		label(@"How often each source appears", 13, YES, NSColor.labelColor),
+	]];
 	for (NSUInteger i = 0; i < self.sourceLabels.count; i++) {
 		NSTextField *name = label(self.sourceLabels[i], 12, NO, NSColor.labelColor);
 		name.maximumNumberOfLines = 1;
@@ -132,86 +176,86 @@ static void fixedWidth(NSView *v, CGFloat w) { [v.widthAnchor constraintEqualToC
 		s.allowsTickMarkValuesOnly = YES;
 		s.continuous = NO;
 		s.tag = (NSInteger)i;
+		s.accessibilityLabel = [NSString stringWithFormat:@"How often %@ appears", self.sourceLabels[i]];
 		fixedWidth(s, 120);
 		NSTextField *val = label(@"", 11, NO, NSColor.secondaryLabelColor);
 		fixedWidth(val, 70);
 		[self.weightSliders addObject:s];
 		[self.weightLabels addObject:val];
-		[sourceRows addObject:row(@[ name, s, val ])];
+		[sourceViews addObject:row(@[ name, s, val ])];
 	}
+	NSStackView *sourcesPane = pane(sourceViews);
 
-	// DeviantArt keys
+	// ---- DeviantArt
 	self.daIDField = [NSTextField textFieldWithString:@""];
 	self.daIDField.placeholderString = @"Client ID";
+	self.daIDField.accessibilityLabel = @"DeviantArt client ID";
 	fixedWidth(self.daIDField, 110);
 	self.daSecretField = [[NSSecureTextField alloc] init];
+	self.daSecretField.accessibilityLabel = @"DeviantArt client secret";
 	fixedWidth(self.daSecretField, 200);
 	NSButton *daConnect = [self button:@"Connect" action:@selector(daConnect:)];
 	self.daStatusLabel = label(@"", 11, NO, NSColor.secondaryLabelColor);
 	self.daStatusLabel.preferredMaxLayoutWidth = inner;
 	self.daSkipAIBox = [self checkbox:@"Skip AI-generated DeviantArt art" action:@selector(skipAI:)];
 	NSTextField *daHelp = label(@"Art on DeviantArt belongs to its artists (not public domain). Get free keys at "
-	                            @"deviantart.com/developers → Register Application (Client type: Confidential).",
-	                            11, NO, NSColor.tertiaryLabelColor);
+	                            @"deviantart.com/developers → Register Application (Client type: Confidential). "
+	                            @"You enter them once per Mac.",
+	                            11, NO, NSColor.secondaryLabelColor);
 	daHelp.preferredMaxLayoutWidth = inner;
-
-	self.pauseBox = [self checkbox:@"Pause automatic changes" action:@selector(pause:)];
-	self.keepRunningBox = [self checkbox:@"Keep changing on Low Power Mode and phone hotspots"
-	                              action:@selector(keepRunning:)];
-	self.loginBox = [self checkbox:@"Start Wallpaper Rotator at login" action:@selector(login:)];
-	self.noteLabel = label(@"", 11, NO, NSColor.systemOrangeColor);
-	self.noteLabel.preferredMaxLayoutWidth = inner;
-
-	NSTextField *hint = label(@"Also in the menu bar (picture-frame icon). ⌘W closes this window.", 11, NO,
-	                          NSColor.tertiaryLabelColor);
-	NSView *spacer = [[NSView alloc] init];
-	[spacer setContentHuggingPriority:1 forOrientation:NSLayoutConstraintOrientationHorizontal];
-	NSButton *quit = [self button:@"Quit" action:@selector(quit:)];
-
-	NSMutableArray<NSView *> *views = [NSMutableArray arrayWithArray:@[
-		self.thumb,
-		self.titleLabel,
-		self.creditLabel,
-		row(@[ self.prevButton, self.nextButton, self.banButton ]),
-		row(@[ self.openButton, self.saveButton ]),
-		separator(),
-		row(@[ label(@"Change every", 13, NO, NSColor.labelColor), self.intervalPopup ]),
-		label(@"Picture sources: how often each appears", 13, YES, NSColor.labelColor),
-	]];
-	[views addObjectsFromArray:sourceRows];
-	[views addObjectsFromArray:@[
-		separator(),
-		label(@"DeviantArt", 13, YES, NSColor.labelColor),
+	NSStackView *daPane = pane(@[
 		daHelp,
 		row(@[ self.daIDField, self.daSecretField, daConnect ]),
 		self.daStatusLabel,
 		self.daSkipAIBox,
-		separator(),
-		self.pauseBox,
-		self.keepRunningBox,
-		self.loginBox,
-		self.noteLabel,
-		separator(),
-		row(@[ hint, spacer, quit ]),
-	]];
+	]);
 
+	// ---- General
+	self.loginBox = [self checkbox:@"Start Wallpaper Rotator at login" action:@selector(login:)];
+	self.keepRunningBox = [self checkbox:@"Keep changing on Low Power Mode and phone hotspots"
+	                              action:@selector(keepRunning:)];
+	self.menuBarBox = [self checkbox:@"Show in menu bar" action:@selector(presence:)];
+	self.dockBox = [self checkbox:@"Show in Dock" action:@selector(presence:)];
+	NSTextField *presenceHelp =
+	    label(@"At least one stays on. Without the Dock icon the app is also left out of ⌘-Tab and Force Quit; "
+	          @"open it from the menu bar or by opening the app again.",
+	          11, NO, NSColor.secondaryLabelColor);
+	presenceHelp.preferredMaxLayoutWidth = inner;
+	NSStackView *generalPane = pane(@[
+		self.loginBox,
+		self.keepRunningBox,
+		separator(),
+		self.menuBarBox,
+		self.dockBox,
+		presenceHelp,
+	]);
+
+	self.panes = @[ nowPane, sourcesPane, daPane, generalPane ];
+	self.paneControl = [NSSegmentedControl segmentedControlWithLabels:@[ @"Now Showing", @"Sources", @"DeviantArt", @"General" ]
+	                                                     trackingMode:NSSegmentSwitchTrackingSelectOne
+	                                                           target:self
+	                                                           action:@selector(pane:)];
+	self.paneControl.accessibilityLabel = @"Section";
+
+	NSMutableArray<NSView *> *views = [NSMutableArray arrayWithObject:self.paneControl];
+	[views addObjectsFromArray:self.panes];
 	NSStackView *stack = [NSStackView stackViewWithViews:views];
 	stack.orientation = NSUserInterfaceLayoutOrientationVertical;
-	stack.alignment = NSLayoutAttributeLeading;
-	stack.spacing = 8;
-	stack.edgeInsets = NSEdgeInsetsMake(pad, pad, pad, pad);
-	[stack setCustomSpacing:12 afterView:self.thumb];
-	[stack setCustomSpacing:2 afterView:self.titleLabel];
-	[stack setCustomSpacing:12 afterView:self.creditLabel];
+	stack.alignment = NSLayoutAttributeCenterX;
+	stack.spacing = 16;
+	stack.edgeInsets = NSEdgeInsetsMake(14, 0, pad, 0);
 	stack.translatesAutoresizingMaskIntoConstraints = NO;
-	for (NSView *v in views) {
-		if ([v isKindOfClass:[NSBox class]] || v == views.lastObject) {
-			[v.widthAnchor constraintEqualToAnchor:stack.widthAnchor constant:-2 * pad].active = YES;
+	[stack.widthAnchor constraintEqualToConstant:width].active = YES;
+	for (NSStackView *p in self.panes) {
+		[p.widthAnchor constraintEqualToAnchor:stack.widthAnchor].active = YES;
+		for (NSView *v in p.arrangedSubviews) {
+			if ([v isKindOfClass:[NSBox class]]) {
+				[v.widthAnchor constraintEqualToAnchor:p.widthAnchor constant:-2 * pad].active = YES;
+			}
 		}
 	}
-	[stack.widthAnchor constraintEqualToConstant:width].active = YES;
 
-	self.window = [[WCWindow alloc] initWithContentRect:NSMakeRect(0, 0, width, 600)
+	self.window = [[WCWindow alloc] initWithContentRect:NSMakeRect(0, 0, width, 500)
 	                                          styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
 	                                                    NSWindowStyleMaskMiniaturizable
 	                                            backing:NSBackingStoreBuffered
@@ -222,8 +266,41 @@ static void fixedWidth(NSView *v, CGFloat w) { [v.widthAnchor constraintEqualToC
 	self.window.collectionBehavior = NSWindowCollectionBehaviorMoveToActiveSpace;
 	self.window.delegate = self;
 	self.window.contentView = stack;
+	[self selectPane:0];
 	[self apply];
-	[self.window center];
+	// Reopen where the user last put it; centre the very first time.
+	if (![self.window setFrameUsingName:@"MainWindow"]) [self.window center];
+	self.window.frameAutosaveName = @"MainWindow";
+	[self fitWindow];
+}
+
+- (void)selectPane:(NSInteger)i {
+	if (i < 0 || i >= (NSInteger)self.panes.count) i = 0;
+	self.paneControl.selectedSegment = i;
+	for (NSInteger j = 0; j < (NSInteger)self.panes.count; j++) self.panes[j].hidden = j != i;
+	if (i > 0) self.lastSettingsPane = i;
+	[self fitWindow];
+}
+
+- (void)pane:(NSSegmentedControl *)c { [self selectPane:c.selectedSegment]; }
+
+// Size the window to the visible pane, keeping its top edge in place and the
+// whole window on screen.
+- (void)fitWindow {
+	if (!self.window) return;
+	[self.window.contentView layoutSubtreeIfNeeded];
+	NSSize s = self.window.contentView.fittingSize;
+	NSRect old = self.window.frame;
+	NSRect f = [self.window frameRectForContentRect:NSMakeRect(0, 0, s.width, s.height)];
+	f.origin.x = old.origin.x;
+	f.origin.y = NSMaxY(old) - f.size.height;
+	NSScreen *screen = self.window.screen ?: NSScreen.mainScreen;
+	if (screen) {
+		NSRect vis = screen.visibleFrame;
+		if (NSMaxY(f) > NSMaxY(vis)) f.origin.y = NSMaxY(vis) - f.size.height;
+		if (f.origin.y < vis.origin.y) f.origin.y = vis.origin.y;
+	}
+	if (!NSEqualRects(f, old)) [self.window setFrame:f display:YES animate:self.window.visible];
 }
 
 // Push the last known state into the controls.
@@ -259,8 +336,22 @@ static void fixedWidth(NSView *v, CGFloat w) { [v.widthAnchor constraintEqualToC
 	self.daSecretField.placeholderString = self.daHasSecret ? @"Saved on this Mac" : @"Client secret";
 	self.daStatusLabel.stringValue = self.daStatus ?: @"";
 	self.daSkipAIBox.state = self.daSkipAI ? NSControlStateValueOn : NSControlStateValueOff;
+	self.menuBarBox.state = self.showMenuBar ? NSControlStateValueOn : NSControlStateValueOff;
+	self.dockBox.state = self.showDock ? NSControlStateValueOn : NSControlStateValueOff;
+	// the box that is the only way left to reach the app can't be turned off
+	self.menuBarBox.enabled = !(self.showMenuBar && !self.showDock);
+	self.dockBox.enabled = !(self.showDock && !self.showMenuBar);
+	self.thumb.accessibilityLabel = self.statusTitle.length
+	    ? [@"Current wallpaper: " stringByAppendingString:self.statusTitle] : @"Current wallpaper";
 	// keep the window snug as text wraps or notes appear
-	[self.window setContentSize:self.window.contentView.fittingSize];
+	[self fitWindow];
+}
+
+// pane: 0 shows the current picture, -1 the settings tab used last.
+- (void)showPane:(NSInteger)pane {
+	if (!self.window) [self buildWindow];
+	[self selectPane:pane < 0 ? MAX(1, self.lastSettingsPane) : pane];
+	[self show];
 }
 
 - (void)show {
@@ -280,7 +371,19 @@ static void fixedWidth(NSView *v, CGFloat w) { [v.widthAnchor constraintEqualToC
 - (void)openPage:(id)s { goSettingsAction(WCActionOpenPage, 0, 0); }
 - (void)save:(id)s { goSettingsAction(WCActionSave, 0, 0); }
 - (void)quit:(id)s { goSettingsAction(WCActionQuit, 0, 0); }
-- (void)openSettings:(id)s { [self show]; }
+- (void)openSettings:(id)s { [self showPane:-1]; }
+- (void)showMain:(id)s { [self showPane:0]; }
+- (void)presence:(NSButton *)b {
+	int menuBar = self.menuBarBox.state == NSControlStateValueOn;
+	int dock = self.dockBox.state == NSControlStateValueOn;
+	if (!menuBar && !dock) { // never leave the app unreachable
+		if (b == self.menuBarBox) dock = 1; else menuBar = 1;
+	}
+	goSettingsAction(WCActionPresence, menuBar, dock);
+}
+- (void)help:(id)s {
+	[NSWorkspace.sharedWorkspace openURL:[NSURL URLWithString:@"https://github.com/jamalxcode/WallpaperRotatorMac#readme"]];
+}
 - (void)checkUpdates:(id)s { goSettingsAction(WCActionCheckUpdates, 0, 0); }
 - (void)about:(id)s {
 	[NSApp orderFrontStandardAboutPanel:nil];
@@ -317,6 +420,8 @@ static void fixedWidth(NSView *v, CGFloat w) { [v.widthAnchor constraintEqualToC
 	[self show];
 }
 - (void)showFromNotification:(NSNotification *)n { [self show]; }
+// Main window of the app: zooming isn't offered because it has a fixed size.
+- (BOOL)windowShouldZoom:(NSWindow *)w toFrame:(NSRect)f { return NO; }
 @end
 
 static void onMain(dispatch_block_t b) {
@@ -338,7 +443,7 @@ static BOOL gShowWhenReady;
 	BOOL atLogin = prop && prop.enumCodeValue == keyAELaunchedAsLogInItem;
 	goLaunchKind(atLogin ? 1 : 0);
 	if (atLogin) return;
-	if (gController) [gController show];
+	if (gController) [gController showPane:0];
 	else gShowWhenReady = YES; // the window is built once the app has finished setting up
 }
 @end
@@ -379,12 +484,24 @@ static NSMenu *dockMenuIMP(id self, SEL _cmd, NSApplication *app) { return gDock
 static void installMenus(WCController *c) {
 	NSString *name = @"Wallpaper Rotator";
 	NSMenu *main = [[NSMenu alloc] init];
+	NSMenuItem *(^top)(NSMenu *) = ^NSMenuItem *(NSMenu *m) {
+		NSMenuItem *it = [[NSMenuItem alloc] init];
+		it.submenu = m;
+		[main addItem:it];
+		return it;
+	};
 
 	NSMenu *appMenu = [[NSMenu alloc] initWithTitle:name];
 	[appMenu addItem:menuItem([@"About " stringByAppendingString:name], @selector(about:), nil, c)];
 	[appMenu addItem:menuItem(@"Check for Updates…", @selector(checkUpdates:), nil, c)];
 	[appMenu addItem:NSMenuItem.separatorItem];
 	[appMenu addItem:menuItem(@"Settings…", @selector(openSettings:), @",", c)];
+	[appMenu addItem:NSMenuItem.separatorItem];
+	NSMenu *services = [[NSMenu alloc] initWithTitle:@"Services"];
+	NSMenuItem *servicesItem = menuItem(@"Services", nil, nil, nil);
+	servicesItem.submenu = services;
+	[appMenu addItem:servicesItem];
+	NSApp.servicesMenu = services;
 	[appMenu addItem:NSMenuItem.separatorItem];
 	[appMenu addItem:menuItem([@"Hide " stringByAppendingString:name], @selector(hide:), @"h", nil)];
 	NSMenuItem *others = menuItem(@"Hide Others", @selector(hideOtherApplications:), @"h", nil);
@@ -393,36 +510,43 @@ static void installMenus(WCController *c) {
 	[appMenu addItem:menuItem(@"Show All", @selector(unhideAllApplications:), nil, nil)];
 	[appMenu addItem:NSMenuItem.separatorItem];
 	[appMenu addItem:menuItem([@"Quit " stringByAppendingString:name], @selector(quit:), @"q", c)];
-	NSMenuItem *appItem = [[NSMenuItem alloc] init];
-	appItem.submenu = appMenu;
-	[main addItem:appItem];
+	top(appMenu);
+
+	NSMenu *file = [[NSMenu alloc] initWithTitle:@"File"];
+	[file addItem:menuItem(@"Close", @selector(performClose:), @"w", nil)];
+	top(file);
 
 	NSMenu *edit = [[NSMenu alloc] initWithTitle:@"Edit"];
 	[edit addItem:menuItem(@"Undo", @selector(undo:), @"z", nil)];
+	[edit addItem:menuItem(@"Redo", @selector(redo:), @"Z", nil)];
 	[edit addItem:NSMenuItem.separatorItem];
 	[edit addItem:menuItem(@"Cut", @selector(cut:), @"x", nil)];
 	[edit addItem:menuItem(@"Copy", @selector(copy:), @"c", nil)];
 	[edit addItem:menuItem(@"Paste", @selector(paste:), @"v", nil)];
 	[edit addItem:menuItem(@"Select All", @selector(selectAll:), @"a", nil)];
-	NSMenuItem *editItem = [[NSMenuItem alloc] init];
-	editItem.submenu = edit;
-	[main addItem:editItem];
+	top(edit);
 
 	NSMenu *win = [[NSMenu alloc] initWithTitle:@"Window"];
-	[win addItem:menuItem(@"Settings…", @selector(openSettings:), nil, c)];
-	[win addItem:NSMenuItem.separatorItem];
 	[win addItem:menuItem(@"Minimize", @selector(performMiniaturize:), @"m", nil)];
-	[win addItem:menuItem(@"Close", @selector(performClose:), @"w", nil)];
-	NSMenuItem *winItem = [[NSMenuItem alloc] init];
-	winItem.submenu = win;
-	[main addItem:winItem];
+	[win addItem:menuItem(@"Zoom", @selector(performZoom:), nil, nil)];
+	[win addItem:NSMenuItem.separatorItem];
+	[win addItem:menuItem(name, @selector(showMain:), @"0", c)];
+	[win addItem:NSMenuItem.separatorItem];
+	[win addItem:menuItem(@"Bring All to Front", @selector(arrangeInFront:), nil, nil)];
+	top(win);
 	NSApp.windowsMenu = win;
+
+	NSMenu *help = [[NSMenu alloc] initWithTitle:@"Help"];
+	[help addItem:menuItem([name stringByAppendingString:@" Help"], @selector(help:), @"?", c)];
+	top(help);
+	NSApp.helpMenu = help;
 
 	NSApp.mainMenu = main;
 
 	gDockMenu = [[NSMenu alloc] init];
+	[gDockMenu addItem:menuItem(@"Next Wallpaper", @selector(next:), nil, c)];
+	[gDockMenu addItem:NSMenuItem.separatorItem];
 	[gDockMenu addItem:menuItem(@"Settings…", @selector(openSettings:), nil, c)];
-	[gDockMenu addItem:menuItem(@"Next Picture", @selector(next:), nil, c)];
 	[gDockMenu addItem:menuItem(@"Check for Updates…", @selector(checkUpdates:), nil, c)];
 	id delegate = NSApp.delegate;
 	if (delegate) {
@@ -440,12 +564,37 @@ void wcInit(const char *sourceLabels, const char *intervalLabels) {
 		gController.intervalLabels = iv;
 		gController.intervalIndex = -1;
 		installMenus(gController);
-		if (gShowWhenReady) dispatch_async(dispatch_get_main_queue(), ^{ [gController show]; });
+		if (gShowWhenReady) dispatch_async(dispatch_get_main_queue(), ^{ [gController showPane:0]; });
 	});
 }
 
-void wcShowSettings(void) {
-	onMain(^{ [gController show]; });
+void wcShow(int pane) {
+	onMain(^{ [gController showPane:pane]; });
+}
+
+// The menu-bar icon belongs to the systray library; reach its status item.
+static NSStatusItem *statusItem(void) {
+	id d = NSApp.delegate;
+	if (!d) return nil;
+	Ivar iv = class_getInstanceVariable([d class], "statusItem");
+	return iv ? object_getIvar(d, iv) : nil;
+}
+
+void wcSetPresence(int menuBar, int dock) {
+	onMain(^{
+		gController.showMenuBar = menuBar;
+		gController.showDock = dock;
+		statusItem().visible = menuBar ? YES : NO;
+		NSApplicationActivationPolicy want = dock ? NSApplicationActivationPolicyRegular
+		                                          : NSApplicationActivationPolicyAccessory;
+		if (NSApp.activationPolicy != want) {
+			BOOL wasVisible = gController.window.visible;
+			[NSApp setActivationPolicy:want];
+			// switching hides the app's windows; bring the window back if it was open
+			if (wasVisible) dispatch_async(dispatch_get_main_queue(), ^{ [gController show]; });
+		}
+		[gController apply];
+	});
 }
 
 void wcSetStatus(const char *title, const char *credit, const char *imagePath, int hasImage, int busy,
@@ -531,6 +680,8 @@ int wcAlert(const char *title, const char *message, const char *b1, const char *
 		a.messageText = t;
 		a.informativeText = m;
 		for (NSString *b in buttons) [a addButtonWithTitle:b];
+		// the last button (Later, Cancel…) also answers to the Escape key
+		if (buttons.count > 1) a.buttons.lastObject.keyEquivalent = @"\033";
 		[NSApp activateIgnoringOtherApps:YES];
 		r = [a runModal];
 	});

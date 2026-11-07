@@ -34,19 +34,22 @@ make install    # builds WallpaperRotator.app, copies it to /Applications, opens
 ```
 
 ## Using it
-The **Settings window** opens whenever you start the app yourself (Finder, Launchpad, Spotlight),
-when you click its Dock icon, or when you choose **Settings…** from the menu-bar icon. It stays
-hidden when macOS starts the app at login. The app also shows in the Dock, ⌘-Tab and Force Quit.
-You can also choose **Wallpaper Rotator → Settings…** (⌘,) from the menu at the top of the screen,
-or right-click the Dock icon. The window always opens on the desktop you're using.
+The app's window opens whenever you start the app yourself (Finder, Launchpad, Spotlight) or click
+its Dock icon, and stays hidden when macOS starts it at login. It has four tabs:
 
-- A preview of the current picture with its title and credit
-- **◀ Previous**, **Next ▶**, and **Never Show Again** (hides that picture forever and moves on)
-- **Open Image Page** (source and license) and **Save to Pictures** (`~/Pictures/Wallpapers`)
-- **Change every** 1, 4, 10, 30 or 60 minutes
-- A **slider for each source** from Off to Very often
-- **Pause**, **Start at login**, and **Keep changing on Low Power Mode and phone hotspots**
-- ⌘W closes the window, ⌘Q quits, and copy and paste work in the text fields
+- **Now Showing**: the current picture, Previous / Next, Never Show This Again, Open Image Page,
+  Save to Pictures and Pause.
+- **Sources**: how often to change and how often each source appears.
+- **DeviantArt**: your keys.
+- **General**: Start at login, Low Power Mode, and **Show in menu bar** / **Show in Dock**. One of the
+  two always stays on. Without the Dock icon the app is also left out of ⌘-Tab and Force Quit.
+
+**Window → Wallpaper Rotator** (⌘0) opens the current picture, and **Wallpaper Rotator → Settings…**
+(⌘,) opens the settings tabs. Both are also in the menu-bar icon's menu, and the Dock icon's menu
+has Next Wallpaper and Settings…. The window opens on the desktop you're using, where you last put it.
+
+⌘W closes the window, ⌘Q quits, and the usual editing shortcuts work in the text fields. **Help →
+Wallpaper Rotator Help** opens this page.
 
 The menu-bar icon has the same main actions.
 
@@ -55,7 +58,7 @@ the Dock icon. It asks GitHub for the latest release and, if there's a newer one
 replace the app and restart. Your settings, history and saved pictures are kept.
 
 > **Can't see the menu-bar icon?** On MacBooks with a notch, macOS hides icons that don't fit.
-> Click the Dock icon to get the Settings window, or ⌘-drag other icons off the menu bar.
+> Click the Dock icon to open the window, or ⌘-drag other icons off the menu bar.
 
 ### Saves battery and data
 - **Doesn't download while you're away.** Changes are skipped while the screen is locked or the
@@ -93,7 +96,7 @@ AI tools are skipped.
    (it isn't used). Set **Client type** to **Confidential**. DeviantArt publishes the app as a post
    on your profile. That's normal, so don't delete it.
 3. Copy the **client_id** and **client_secret** from https://www.deviantart.com/studio/apps.
-4. Paste them into the **DeviantArt** section of Settings and click **Connect**.
+4. Paste them into the **DeviantArt** tab of Settings and click **Connect**.
 
 It uses OAuth 2.0 *client credentials*, so there's no browser sign-in. You enter the keys once per
 Mac: they're saved in your user folder (readable only by you) and reused on every launch and update,
@@ -144,7 +147,7 @@ publishes a release with the zipped app.
 | `sources*.go` | One client per picture source |
 | `filter.go` | Word filters |
 | `platform_darwin.m/.h/.go` | macOS APIs: wallpaper, Spaces, lock/sleep/power/network monitor, login item (`SMAppService`), Keychain, Vision |
-| `settings_darwin.m/.h/.go` | Native Settings window |
+| `settings_darwin.m/.h/.go` | Native window (tabs), app menus, Dock menu, alerts |
 | `assets/icon.png` | App icon (`make` builds `AppIcon.icns` from it) |
 
 ## Known limitations

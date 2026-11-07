@@ -48,7 +48,7 @@ func main() {
 	// single instance: if already running, ask that copy to show its Settings window
 	lock, err := os.OpenFile(filepath.Join(supportDir, "app.lock"), os.O_CREATE|os.O_RDWR, 0o644)
 	if err == nil && syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) != nil {
-		log.Print("already running; asking it to show Settings")
+		log.Print("already running; asking it to show its window")
 		askRunningInstanceToShowSettings()
 		return
 	}
@@ -68,6 +68,10 @@ func (a *App) onReady() {
 		ivLabels = append(ivLabels, intervalLabel(m))
 	}
 	settingsInit(srcLabels, ivLabels)
+	a.mu.Lock()
+	menuBar, dock := !a.cfg.HideMenuBarIcon, !a.cfg.HideDockIcon
+	a.mu.Unlock()
+	settingsSetPresence(menuBar, dock)
 	a.syncUI()
 	a.refreshStatus(false)
 	a.mu.Lock()

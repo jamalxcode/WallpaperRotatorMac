@@ -390,6 +390,16 @@ func (a *App) SetPaused(p bool) {
 	a.kick()
 }
 
+// SetPresence shows or hides the menu-bar icon and the Dock icon. At least
+// one of them stays on so the app can always be reached.
+func (a *App) SetPresence(menuBar, dock bool) {
+	if !menuBar && !dock {
+		menuBar = true
+	}
+	a.update(func(c *Config) { c.HideMenuBarIcon, c.HideDockIcon = !menuBar, !dock })
+	settingsSetPresence(menuBar, dock)
+}
+
 func (a *App) SetKeepRunning(on bool) { a.update(func(c *Config) { c.KeepRunning = on }) }
 
 func (a *App) SetSkipAI(skip bool) {

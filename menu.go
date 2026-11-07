@@ -44,15 +44,16 @@ func buildMenu(a *App) *Menu {
 	for _, min := range intervals {
 		m.intervals[min] = every.AddSubMenuItemCheckbox(intervalLabel(min), "", false)
 	}
-	src := systray.AddMenuItem("Sources", "Use Settings… to set how often each appears")
+	src := systray.AddMenuItem("Sources", "Use Settings… to choose how often each appears")
 	for _, s := range a.sources {
 		m.sources[s.Name()] = src.AddSubMenuItemCheckbox(sourceLabels[s.Name()], "", false)
 	}
 	m.login = systray.AddMenuItemCheckbox("Start at Login", "", false)
-	settings := systray.AddMenuItem("Settings…", "Open the Settings window")
+	show := systray.AddMenuItem("Show Wallpaper Rotator", "Open the window with the current picture")
+	settings := systray.AddMenuItem("Settings…", "Sources, DeviantArt and general options")
 	updates := systray.AddMenuItem("Check for Updates…", "See if a newer version is on GitHub")
 	systray.AddSeparator()
-	quit := systray.AddMenuItem("Quit", "")
+	quit := systray.AddMenuItem("Quit Wallpaper Rotator", "")
 
 	m.prev.Disable()
 	m.ban.Disable()
@@ -102,6 +103,8 @@ func buildMenu(a *App) *Menu {
 				go a.SaveCurrent()
 			case <-m.login.ClickedCh:
 				go a.SetLogin(loginStatus() != LoginOn)
+			case <-show.ClickedCh:
+				showMain()
 			case <-settings.ClickedCh:
 				showSettings()
 			case <-updates.ClickedCh:

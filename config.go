@@ -57,6 +57,9 @@ type Config struct {
 	// DeviantArt OAuth app (client credentials). The secret is in deviantart-secret.
 	DeviantArtClientID string `json:"deviantart_client_id,omitempty"`
 	DeviantArtAllowAI  bool   `json:"deviantart_allow_ai,omitempty"`
+	// Where the app shows up. At least one of the two stays visible.
+	HideMenuBarIcon bool `json:"hide_menu_bar_icon,omitempty"`
+	HideDockIcon    bool `json:"hide_dock_icon,omitempty"`
 	// Settings window opens automatically on the very first launch.
 	WelcomeShown bool `json:"welcome_shown"`
 
@@ -105,6 +108,9 @@ func (c *Config) normalize() {
 		c.Weights[name] = min(max(w, 0), maxWeight)
 	}
 	c.LegacySources = nil
+	if c.HideMenuBarIcon && c.HideDockIcon {
+		c.HideMenuBarIcon = false // never leave the app with no way to reach it
+	}
 }
 
 func (c Config) save() { c.saveTo(configPath) }
