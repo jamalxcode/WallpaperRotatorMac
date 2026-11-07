@@ -54,6 +54,7 @@ func main() {
 	}
 
 	theApp = a
+	a.logDeviantKeys()
 	watchLaunch()
 	systray.Run(a.onReady, func() {})
 }

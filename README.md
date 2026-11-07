@@ -100,7 +100,8 @@ AI tools are skipped.
 
 It uses OAuth 2.0 *client credentials*, so there's no browser sign-in. You enter the keys once per
 Mac: they're saved in your user folder (readable only by you) and reused on every launch and update,
-with no password prompts. They're never put in this repo.
+with no password prompts. They're never put in this repo. To delete them, click **Remove Keys…** on the DeviantArt tab; it asks
+first. Clicking Connect with an empty box never deletes anything.
 
 ## Keeping it family-friendly
 1. **Safe sources and searches.** NASA, US-government nature photos, *featured* Commons photos, and

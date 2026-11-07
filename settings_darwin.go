@@ -66,6 +66,8 @@ func goSettingsAction(action, index, value C.int) {
 			a.Quit()
 		case C.WCActionCheckUpdates:
 			a.CheckForUpdates()
+		case C.WCActionRemoveDeviantKeys:
+			a.RemoveDeviantKeys()
 		case C.WCActionPresence:
 			a.SetPresence(i != 0, on)
 		}

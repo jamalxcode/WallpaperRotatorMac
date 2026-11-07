@@ -18,6 +18,7 @@ enum {
 	WCActionKeepRunning = 12, // value = keep changing on Low Power Mode / hotspot
 	WCActionCheckUpdates = 13,
 	WCActionPresence = 14,   // index = show in menu bar, value = show in Dock
+	WCActionRemoveDeviantKeys = 15,
 };
 
 // Labels are newline-separated. All functions are safe to call from any thread.

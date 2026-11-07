@@ -420,26 +420,22 @@ func (a *App) SetLogin(on bool) {
 func (a *App) Quit() { quitApp() }
 
 // SetDeviantKeys checks DeviantArt credentials, saves them on this Mac, and
-// turns the source on. An empty secret keeps the saved one.
+// turns the source on. An empty secret keeps the saved one. It never removes
+// saved keys; that is RemoveDeviantKeys, which asks first.
 func (a *App) SetDeviantKeys(id, secret string) {
 	_, saved, _ := a.deviantCreds()
 	if secret == "" {
 		secret = saved
 	}
-	a.fetcher.Reset("DeviantArt")
 	if id == "" {
-		deleteDeviantSecret()
-		a.mu.Lock()
-		a.daSecret, a.daSecretLoaded = "", true
-		a.mu.Unlock()
-		a.update(func(c *Config) { c.DeviantArtClientID = ""; c.Weights["DeviantArt"] = 0 })
-		a.refreshDeviant("Keys removed. DeviantArt is off.")
+		a.refreshDeviant("❌ Enter the client ID too. (To remove your keys, use Remove Keys….)")
 		return
 	}
 	if secret == "" {
 		a.refreshDeviant("❌ Enter the client secret too.")
 		return
 	}
+	a.fetcher.Reset("DeviantArt")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if _, err := daAuth.accessToken(ctx, id, secret); err != nil {
@@ -460,7 +456,45 @@ func (a *App) SetDeviantKeys(id, secret string) {
 			c.Weights["DeviantArt"] = 3
 		}
 	})
+	log.Printf("DeviantArt keys saved (client ID %s, secret in %s)", id, daSecretPath)
 	a.refreshDeviant("✅ Connected. Your keys are saved on this Mac.")
+}
+
+// RemoveDeviantKeys deletes the saved DeviantArt keys after asking, and turns
+// the source off.
+func (a *App) RemoveDeviantKeys() {
+	if alert("Remove your DeviantArt keys?",
+		"DeviantArt pictures stop until you enter the client ID and secret again.",
+		"Remove Keys", "Cancel") != 1 {
+		return
+	}
+	deleteDeviantSecret()
+	a.mu.Lock()
+	a.daSecret, a.daSecretLoaded = "", true
+	a.mu.Unlock()
+	a.update(func(c *Config) { c.DeviantArtClientID = ""; c.Weights["DeviantArt"] = 0 })
+	a.fetcher.Reset("DeviantArt")
+	log.Print("DeviantArt keys removed by the user")
+	a.refreshDeviant("Keys removed. DeviantArt is off.")
+}
+
+// logDeviantKeys notes at startup whether the DeviantArt keys were found, so
+// missing keys can be traced in the log.
+func (a *App) logDeviantKeys() {
+	a.mu.Lock()
+	id := a.cfg.DeviantArtClientID
+	a.mu.Unlock()
+	_, err := os.Stat(daSecretPath)
+	switch {
+	case id != "" && err == nil:
+		log.Printf("DeviantArt keys found (client ID %s)", id)
+	case id != "":
+		log.Printf("DeviantArt client ID %s is saved but %s is missing", id, daSecretPath)
+	case err == nil:
+		log.Printf("DeviantArt secret file exists but no client ID is saved")
+	default:
+		log.Print("no DeviantArt keys saved")
+	}
 }
 
 // ---- UI sync

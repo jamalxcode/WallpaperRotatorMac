@@ -49,7 +49,7 @@ static NSArray<NSString *> *weightNames(void) {
 @property(strong) NSMutableArray<NSTextField *> *weightLabels;
 @property(strong) NSTextField *daIDField, *daStatusLabel;
 @property(strong) NSSecureTextField *daSecretField;
-@property(strong) NSButton *daSkipAIBox;
+@property(strong) NSButton *daSkipAIBox, *daRemoveButton;
 @property(strong) NSButton *menuBarBox, *dockBox;
 @property(strong) NSSegmentedControl *paneControl;
 @property(strong) NSArray<NSStackView *> *panes;
@@ -195,6 +195,7 @@ static NSStackView *pane(NSArray<NSView *> *views) {
 	self.daSecretField.accessibilityLabel = @"DeviantArt client secret";
 	fixedWidth(self.daSecretField, 200);
 	NSButton *daConnect = [self button:@"Connect" action:@selector(daConnect:)];
+	self.daRemoveButton = [self button:@"Remove Keys…" action:@selector(daRemove:)];
 	self.daStatusLabel = label(@"", 11, NO, NSColor.secondaryLabelColor);
 	self.daStatusLabel.preferredMaxLayoutWidth = inner;
 	self.daSkipAIBox = [self checkbox:@"Skip AI-generated DeviantArt art" action:@selector(skipAI:)];
@@ -208,6 +209,7 @@ static NSStackView *pane(NSArray<NSView *> *views) {
 		row(@[ self.daIDField, self.daSecretField, daConnect ]),
 		self.daStatusLabel,
 		self.daSkipAIBox,
+		self.daRemoveButton,
 	]);
 
 	// ---- General
@@ -336,6 +338,7 @@ static NSStackView *pane(NSArray<NSView *> *views) {
 	self.daSecretField.placeholderString = self.daHasSecret ? @"Saved on this Mac" : @"Client secret";
 	self.daStatusLabel.stringValue = self.daStatus ?: @"";
 	self.daSkipAIBox.state = self.daSkipAI ? NSControlStateValueOn : NSControlStateValueOff;
+	self.daRemoveButton.enabled = self.daID.length > 0 || self.daHasSecret;
 	self.menuBarBox.state = self.showMenuBar ? NSControlStateValueOn : NSControlStateValueOff;
 	self.dockBox.state = self.showDock ? NSControlStateValueOn : NSControlStateValueOff;
 	// the box that is the only way left to reach the app can't be turned off
@@ -403,11 +406,17 @@ static NSStackView *pane(NSArray<NSView *> *views) {
 	goSettingsAction(WCActionLogin, 0, b.state != NSControlStateValueOff);
 }
 - (void)skipAI:(NSButton *)b { goSettingsAction(WCActionSkipAI, 0, [self on:b]); }
+- (void)daRemove:(id)s { goSettingsAction(WCActionRemoveDeviantKeys, 0, 0); }
 - (void)daConnect:(id)s {
 	[self.window makeFirstResponder:nil]; // commit any in-progress edit
 	NSCharacterSet *ws = NSCharacterSet.whitespaceAndNewlineCharacterSet;
 	NSString *cid = [self.daIDField.stringValue stringByTrimmingCharactersInSet:ws];
 	NSString *sec = [self.daSecretField.stringValue stringByTrimmingCharactersInSet:ws];
+	if (cid.length == 0) { // keep what was typed; removing keys is Remove Keys…
+		self.daStatus = @"❌ Enter the client ID too.";
+		self.daStatusLabel.stringValue = self.daStatus;
+		return;
+	}
 	self.daSecretField.stringValue = @""; // the secret is saved to its own file, not kept in the window
 	self.daID = cid;
 	self.daStatus = @"Connecting…";
