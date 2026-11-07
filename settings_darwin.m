@@ -256,7 +256,7 @@ static void fixedWidth(NSView *v, CGFloat w) { [v.widthAnchor constraintEqualToC
 	self.noteLabel.stringValue = self.note ?: @"";
 	self.noteLabel.hidden = self.note.length == 0;
 	if (self.daIDField.currentEditor == nil) self.daIDField.stringValue = self.daID ?: @"";
-	self.daSecretField.placeholderString = self.daHasSecret ? @"Saved in Keychain" : @"Client secret";
+	self.daSecretField.placeholderString = self.daHasSecret ? @"Saved on this Mac" : @"Client secret";
 	self.daStatusLabel.stringValue = self.daStatus ?: @"";
 	self.daSkipAIBox.state = self.daSkipAI ? NSControlStateValueOn : NSControlStateValueOff;
 	// keep the window snug as text wraps or notes appear
@@ -305,7 +305,7 @@ static void fixedWidth(NSView *v, CGFloat w) { [v.widthAnchor constraintEqualToC
 	NSCharacterSet *ws = NSCharacterSet.whitespaceAndNewlineCharacterSet;
 	NSString *cid = [self.daIDField.stringValue stringByTrimmingCharactersInSet:ws];
 	NSString *sec = [self.daSecretField.stringValue stringByTrimmingCharactersInSet:ws];
-	self.daSecretField.stringValue = @""; // the secret goes to the Keychain, not the window
+	self.daSecretField.stringValue = @""; // the secret is saved to its own file, not kept in the window
 	self.daID = cid;
 	self.daStatus = @"Connecting…";
 	self.daStatusLabel.stringValue = self.daStatus;

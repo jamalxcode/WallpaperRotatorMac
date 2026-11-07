@@ -30,7 +30,7 @@ func TestConfigMigratesSourcesToWeights(t *testing.T) {
 		t.Error("legacy sources map should be dropped after migration")
 	}
 	if c.LegacySecret != "s3cret" {
-		t.Error("legacy secret should be readable so the app can move it to the Keychain")
+		t.Error("legacy secret should be readable so the app can move it to its own file")
 	}
 
 	c.LegacySecret = ""

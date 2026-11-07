@@ -76,7 +76,7 @@ func (a *App) onReady() {
 	a.cfg.save()
 	a.mu.Unlock()
 	if hasKeys {
-		a.refreshDeviant("Keys saved (secret in Keychain).")
+		a.refreshDeviant("Keys saved on this Mac.")
 	} else {
 		a.refreshDeviant("Not connected.")
 	}

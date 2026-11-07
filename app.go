@@ -75,13 +75,13 @@ func NewApp() *App {
 	if items := a.history.All(); len(items) > 0 {
 		a.current = items[len(items)-1]
 	}
-	// Move a DeviantArt secret from the old plain-text config into the Keychain.
+	// Move a DeviantArt secret from the old config field into its own file.
 	if s := a.cfg.LegacySecret; s != "" {
-		if err := keychainSet(daKeychainAccount, s); err == nil {
+		if err := saveDeviantSecret(s); err == nil {
 			a.cfg.LegacySecret = ""
 			a.daSecret, a.daSecretLoaded = s, true
 		} else {
-			log.Print("moving secret to Keychain: ", err)
+			log.Print("saving DeviantArt secret: ", err)
 		}
 	}
 	a.cfg.save()
@@ -104,7 +104,7 @@ func (a *App) deviantCreds() (id, secret string, skipAI bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if !a.daSecretLoaded && a.cfg.DeviantArtClientID != "" {
-		a.daSecret, a.daSecretLoaded = keychainGet(daKeychainAccount), true
+		a.daSecret, a.daSecretLoaded = loadDeviantSecret(), true
 	}
 	return a.cfg.DeviantArtClientID, a.daSecret, !a.cfg.DeviantArtAllowAI
 }
@@ -409,8 +409,8 @@ func (a *App) SetLogin(on bool) {
 
 func (a *App) Quit() { quitApp() }
 
-// SetDeviantKeys checks DeviantArt credentials, stores the secret in the
-// Keychain, and turns the source on. An empty secret keeps the saved one.
+// SetDeviantKeys checks DeviantArt credentials, saves them on this Mac, and
+// turns the source on. An empty secret keeps the saved one.
 func (a *App) SetDeviantKeys(id, secret string) {
 	_, saved, _ := a.deviantCreds()
 	if secret == "" {
@@ -418,7 +418,7 @@ func (a *App) SetDeviantKeys(id, secret string) {
 	}
 	a.fetcher.Reset("DeviantArt")
 	if id == "" {
-		keychainDelete(daKeychainAccount)
+		deleteDeviantSecret()
 		a.mu.Lock()
 		a.daSecret, a.daSecretLoaded = "", true
 		a.mu.Unlock()
@@ -437,8 +437,8 @@ func (a *App) SetDeviantKeys(id, secret string) {
 		a.refreshDeviant("❌ " + err.Error())
 		return
 	}
-	if err := keychainSet(daKeychainAccount, secret); err != nil {
-		a.refreshDeviant("❌ Couldn't save to Keychain: " + err.Error())
+	if err := saveDeviantSecret(secret); err != nil {
+		a.refreshDeviant("❌ Couldn't save the keys: " + err.Error())
 		return
 	}
 	a.mu.Lock()
@@ -450,7 +450,7 @@ func (a *App) SetDeviantKeys(id, secret string) {
 			c.Weights["DeviantArt"] = 3
 		}
 	})
-	a.refreshDeviant("✅ Connected. The secret is stored in your Keychain.")
+	a.refreshDeviant("✅ Connected. Your keys are saved on this Mac.")
 }
 
 // ---- UI sync

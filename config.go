@@ -54,7 +54,7 @@ type Config struct {
 	MainDisplayOnly bool `json:"main_display_only,omitempty"`
 	// Optional free key from https://api.data.gov/signup (DEMO_KEY is used otherwise).
 	SmithsonianKey string `json:"smithsonian_api_key,omitempty"`
-	// DeviantArt OAuth app (client credentials). The secret lives in the Keychain.
+	// DeviantArt OAuth app (client credentials). The secret is in deviantart-secret.
 	DeviantArtClientID string `json:"deviantart_client_id,omitempty"`
 	DeviantArtAllowAI  bool   `json:"deviantart_allow_ai,omitempty"`
 	// Settings window opens automatically on the very first launch.

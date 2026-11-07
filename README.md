@@ -95,8 +95,9 @@ AI tools are skipped.
 3. Copy the **client_id** and **client_secret** from https://www.deviantart.com/studio/apps.
 4. Paste them into the **DeviantArt** section of Settings and click **Connect**.
 
-It uses OAuth 2.0 *client credentials*, so there's no browser sign-in. The secret is stored in your
-**macOS Keychain**, never in a file or in this repo.
+It uses OAuth 2.0 *client credentials*, so there's no browser sign-in. You enter the keys once per
+Mac: they're saved in your user folder (readable only by you) and reused on every launch and update,
+with no password prompts. They're never put in this repo.
 
 ## Keeping it family-friendly
 1. **Safe sources and searches.** NASA, US-government nature photos, *featured* Commons photos, and
@@ -117,7 +118,7 @@ No filter is perfect. You can also turn every source down except NASA and Wildli
 | Settings | `~/Library/Application Support/WallpaperRotator/config.json` (readable only by you) |
 | Recent pictures (last ~30) and history | `~/Library/Application Support/WallpaperRotator/` |
 | Log (capped at 2 MB) | `~/Library/Logs/WallpaperRotator.log` |
-| DeviantArt secret | macOS Keychain, item `com.jamalxcode.wallpaperrotator` |
+| DeviantArt secret | `~/Library/Application Support/WallpaperRotator/deviantart-secret` (readable only by you) |
 
 Upgrading from the old "Wallpaper Changer" moves your settings, history and DeviantArt secret over
 automatically.
@@ -150,8 +151,6 @@ publishes a release with the zipped app.
 - macOS only lets apps set the wallpaper of the **current** Space. Other Spaces get the new picture
   when you switch to them.
 - Full-screen app Spaces have no wallpaper.
-- Builds are ad-hoc signed, so after each update macOS may ask once whether the app can read its
-  Keychain item (choose **Always Allow**).
 
 ## License
 [MIT](LICENSE). The pictures belong to their sources: public domain or CC0, except DeviantArt art,
