@@ -54,9 +54,12 @@ func main() {
 	}
 
 	theApp = a
+	markRunning()
+	watchSignals()
 	a.logDeviantKeys()
 	watchLaunch()
 	systray.Run(a.onReady, func() {})
+	logQuit("") // quits from the app's own menus, ⌘Q, signals and updates end the loop here
 }
 
 func (a *App) onReady() {

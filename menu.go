@@ -110,7 +110,7 @@ func buildMenu(a *App) *Menu {
 			case <-updates.ClickedCh:
 				go a.CheckForUpdates()
 			case <-quit.ClickedCh:
-				a.Quit()
+				a.Quit("Quit chosen from the menu-bar icon")
 				return
 			}
 		}

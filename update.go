@@ -227,6 +227,7 @@ func installUpdate(zipURL string) error {
 	if err := cmd.Start(); err != nil {
 		alert("Update installed", "Open Wallpaper Rotator again to use the new version.", "OK")
 	}
+	setQuitReason("restarting to finish an update")
 	quitApp()
 	return nil
 }

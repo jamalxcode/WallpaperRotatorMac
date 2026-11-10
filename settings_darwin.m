@@ -444,9 +444,40 @@ static NSString *str(const char *s) { return s ? [NSString stringWithUTF8String:
 
 static BOOL gShowWhenReady;
 
+static NSString *gQuitDetail;
+
+// Describe who asked the app to quit, from the Apple Event being handled (the
+// Dock's Quit, another app, logging out, restarting or shutting down).
+static NSString *quitDetail(NSAppleEventDescriptor *e) {
+	if (!e) return @"";
+	NSString *why = nil;
+	NSAppleEventDescriptor *r = [e attributeDescriptorForKeyword:kAEQuitReason];
+	switch (r ? r.enumCodeValue : 0) {
+	case kAELogOut: case kAEReallyLogOut: why = @"logging out"; break;
+	case kAERestart: case kAEShowRestartDialog: why = @"restarting"; break;
+	case kAEShutDown: case kAEShowShutdownDialog: why = @"shutting down"; break;
+	}
+	NSString *who = nil;
+	NSAppleEventDescriptor *pid = [e attributeDescriptorForKeyword:keySenderPIDAttr];
+	if (pid) {
+		NSRunningApplication *app = [NSRunningApplication runningApplicationWithProcessIdentifier:pid.int32Value];
+		who = app.localizedName ?: [NSString stringWithFormat:@"process %d", pid.int32Value];
+	}
+	if (why && who) return [NSString stringWithFormat:@"macOS is %@; asked by %@", why, who];
+	if (why) return [@"macOS is " stringByAppendingString:why];
+	if (who) return [@"asked to quit by " stringByAppendingString:who];
+	return @"asked to quit by another app";
+}
+
 @interface WCLaunchHandler : NSObject
 @end
 @implementation WCLaunchHandler
+// Quit request from outside (the Dock, another app, logging out, restarting or
+// shutting down): note who asked, then quit as AppKit would.
+- (void)handleQuit:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)reply {
+	gQuitDetail = quitDetail(event);
+	[NSApp terminate:nil];
+}
 - (void)handleOpen:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)reply {
 	NSAppleEventDescriptor *prop = [event paramDescriptorForKeyword:keyAEPropData];
 	BOOL atLogin = prop && prop.enumCodeValue == keyAELaunchedAsLogInItem;
@@ -464,6 +495,12 @@ static WCLaunchHandler *gLaunchHandler;
 // the launch event is delivered.
 void wcWatchLaunch(void) {
 	gLaunchHandler = [[WCLaunchHandler alloc] init];
+	[[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationWillTerminateNotification
+	                                                  object:nil
+	                                                   queue:nil
+	                                              usingBlock:^(NSNotification *n) {
+		                                              goQuitting((char *)(gQuitDetail ?: @"").UTF8String);
+	                                              }];
 	[[NSNotificationCenter defaultCenter]
 	    addObserverForName:NSApplicationWillFinishLaunchingNotification
 	                object:nil
@@ -473,6 +510,10 @@ void wcWatchLaunch(void) {
 		                                                               andSelector:@selector(handleOpen:withReplyEvent:)
 		                                                             forEventClass:kCoreEventClass
 		                                                                andEventID:kAEOpenApplication];
+		            [[NSAppleEventManager sharedAppleEventManager] setEventHandler:gLaunchHandler
+		                                                               andSelector:@selector(handleQuit:withReplyEvent:)
+		                                                             forEventClass:kCoreEventClass
+		                                                                andEventID:kAEQuitApplication];
 	            }];
 }
 

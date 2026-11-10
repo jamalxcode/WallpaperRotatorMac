@@ -26,6 +26,9 @@ func goLaunchKind(atLogin C.int) {
 	}
 }
 
+//export goQuitting
+func goQuitting(detail *C.char) { logQuit(C.GoString(detail)) }
+
 //export goSettingsAction
 func goSettingsAction(action, index, value C.int) {
 	a := theApp
@@ -63,7 +66,7 @@ func goSettingsAction(action, index, value C.int) {
 		case C.WCActionSkipAI:
 			a.SetSkipAI(on)
 		case C.WCActionQuit:
-			a.Quit()
+			a.Quit("Quit chosen in the app (menu or ⌘Q)")
 		case C.WCActionCheckUpdates:
 			a.CheckForUpdates()
 		case C.WCActionRemoveDeviantKeys:

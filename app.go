@@ -417,7 +417,11 @@ func (a *App) SetLogin(on bool) {
 	a.syncUI()
 }
 
-func (a *App) Quit() { quitApp() }
+// Quit stops the app; reason goes to the log.
+func (a *App) Quit(reason string) {
+	setQuitReason(reason)
+	quitApp()
+}
 
 // SetDeviantKeys checks DeviantArt credentials, saves them on this Mac, and
 // turns the source on. An empty secret keeps the saved one. It never removes
