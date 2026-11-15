@@ -246,6 +246,19 @@ func (h *History) Remove(id string) {
 	h.saveLocked()
 }
 
+// MoveToEnd makes the picture with this id the newest entry.
+func (h *History) MoveToEnd(id string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for i, s := range h.items {
+		if s.ID == id {
+			h.items = append(append(h.items[:i:i], h.items[i+1:]...), s)
+			h.saveLocked()
+			return
+		}
+	}
+}
+
 func (h *History) Len() int { h.mu.Lock(); defer h.mu.Unlock(); return len(h.items) }
 
 func (h *History) All() []Shown {

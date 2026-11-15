@@ -744,3 +744,137 @@ char *wcAppVersion(void) {
 }
 
 char *wcBundlePath(void) { return strdup(NSBundle.mainBundle.bundlePath.UTF8String ?: ""); }
+
+// ---- picture grid in the menu-bar menu ----
+
+static const CGFloat kTileW = 86, kTileH = 54, kTileGap = 6, kGridPad = 14;
+static const int kCols = 3;
+
+@interface WCTile : NSButton
+@property NSInteger index;
+@end
+@implementation WCTile
+- (void)updateTrackingAreas {
+	[super updateTrackingAreas];
+	for (NSTrackingArea *t in self.trackingAreas) [self removeTrackingArea:t];
+	[self addTrackingArea:[[NSTrackingArea alloc] initWithRect:self.bounds
+	                                                   options:NSTrackingMouseEnteredAndExited | NSTrackingActiveAlways
+	                                                     owner:self
+	                                                  userInfo:nil]];
+}
+- (void)setHover:(BOOL)on {
+	self.layer.borderWidth = on ? 2 : 0.5;
+	self.layer.borderColor = (on ? NSColor.controlAccentColor : NSColor.separatorColor).CGColor;
+}
+- (void)mouseEntered:(NSEvent *)e { [self setHover:YES]; }
+- (void)mouseExited:(NSEvent *)e { [self setHover:NO]; }
+@end
+
+@interface WCRecentGrid : NSView
+@property(strong) NSMutableArray<WCTile *> *tiles;
+@property(strong) NSMutableDictionary<NSString *, NSImage *> *thumbs;
+@end
+
+@implementation WCRecentGrid
+- (instancetype)init {
+	CGFloat w = kGridPad * 2 + kCols * kTileW + (kCols - 1) * kTileGap;
+	CGFloat h = 3 * kTileH + 2 * kTileGap + 8;
+	self = [super initWithFrame:NSMakeRect(0, 0, w, h)];
+	self.tiles = [NSMutableArray array];
+	self.thumbs = [NSMutableDictionary dictionary];
+	for (int i = 0; i < 9; i++) {
+		int r = i / kCols, c = i % kCols;
+		NSRect f = NSMakeRect(kGridPad + c * (kTileW + kTileGap), h - 4 - (r + 1) * kTileH - r * kTileGap, kTileW, kTileH);
+		WCTile *t = [[WCTile alloc] initWithFrame:f];
+		t.index = i;
+		t.bordered = NO;
+		t.title = @"";
+		t.imageScaling = NSImageScaleAxesIndependently;
+		t.wantsLayer = YES;
+		t.layer.cornerRadius = 5;
+		t.layer.masksToBounds = YES;
+		[t setHover:NO];
+		t.target = self;
+		t.action = @selector(clicked:);
+		[self addSubview:t];
+		[self.tiles addObject:t];
+	}
+	return self;
+}
+
+// A small aspect-filled copy, so the menu opens instantly and stays light.
+- (NSImage *)thumbFor:(NSString *)path {
+	NSImage *t = self.thumbs[path];
+	if (t) return t;
+	NSImage *src = [[NSImage alloc] initWithContentsOfFile:path];
+	if (!src || src.size.width <= 0 || src.size.height <= 0) return nil;
+	NSSize s = NSMakeSize(kTileW * 2, kTileH * 2);
+	t = [[NSImage alloc] initWithSize:s];
+	[t lockFocus];
+	CGFloat scale = MAX(s.width / src.size.width, s.height / src.size.height);
+	NSSize d = NSMakeSize(src.size.width * scale, src.size.height * scale);
+	[src drawInRect:NSMakeRect((s.width - d.width) / 2, (s.height - d.height) / 2, d.width, d.height)
+	       fromRect:NSZeroRect
+	      operation:NSCompositingOperationCopy
+	       fraction:1];
+	[t unlockFocus];
+	t.size = NSMakeSize(kTileW, kTileH);
+	self.thumbs[path] = t;
+	return t;
+}
+
+- (void)setPaths:(NSArray<NSString *> *)paths titles:(NSArray<NSString *> *)titles {
+	NSMutableDictionary *keep = [NSMutableDictionary dictionary];
+	for (NSUInteger i = 0; i < self.tiles.count; i++) {
+		WCTile *t = self.tiles[i];
+		NSString *p = i < paths.count ? paths[i] : nil;
+		NSImage *img = p.length ? [self thumbFor:p] : nil;
+		if (img) keep[p] = img;
+		t.image = img;
+		t.hidden = img == nil;
+		NSString *title = i < titles.count ? titles[i] : @"";
+		t.toolTip = i == 0 ? [title stringByAppendingString:@" (on your desktop now)"] : title;
+		t.accessibilityLabel = t.toolTip;
+		[t setHover:NO];
+	}
+	self.thumbs = keep; // forget pictures that left the grid
+}
+
+- (void)clicked:(WCTile *)t {
+	BOOL option = (NSEvent.modifierFlags & NSEventModifierFlagOption) != 0;
+	[self.enclosingMenuItem.menu cancelTracking];
+	goRecentClicked((int)t.index, option ? 1 : 0);
+}
+@end
+
+static WCRecentGrid *gRecentGrid;
+static NSMenuItem *gRecentItem;
+
+void wcSetRecent(const char *anchor, const char *paths, const char *titles) {
+	NSString *a = str(anchor);
+	NSArray *ps = [str(paths) componentsSeparatedByString:@"\n"];
+	NSArray *ts = [str(titles) componentsSeparatedByString:@"\n"];
+	if (ps.count == 1 && [ps[0] length] == 0) ps = @[];
+	onMain(^{
+		id d = NSApp.delegate;
+		Ivar iv = d ? class_getInstanceVariable([d class], "menu") : NULL;
+		NSMenu *menu = iv ? object_getIvar(d, iv) : nil;
+		if (!menu) return;
+		NSMenuItem *label = nil;
+		for (NSMenuItem *it in menu.itemArray) {
+			if ([it.title isEqualToString:a]) { label = it; break; }
+		}
+		if (!label) return; // the menu isn't built yet; the next update will add the grid
+		if (!gRecentItem) {
+			gRecentGrid = [[WCRecentGrid alloc] init];
+			gRecentItem = [[NSMenuItem alloc] init];
+			gRecentItem.view = gRecentGrid;
+		}
+		if (gRecentItem.menu == nil) {
+			[menu insertItem:gRecentItem atIndex:[menu indexOfItem:label] + 1];
+		}
+		[gRecentGrid setPaths:ps titles:ts];
+		gRecentItem.hidden = ps.count == 0;
+		label.hidden = ps.count == 0;
+	});
+}

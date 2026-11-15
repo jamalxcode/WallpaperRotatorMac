@@ -39,9 +39,11 @@ type App struct {
 	fetcher *Fetcher
 	history *History
 	current Shown
-	sys     SystemState
-	missed  bool // a change was skipped while auto-paused
-	offline bool // showing saved pictures because there's no internet
+	// recentShown is what the menu's picture grid shows, newest first.
+	recentShown []Shown
+	sys         SystemState
+	missed      bool // a change was skipped while auto-paused
+	offline     bool // showing saved pictures because there's no internet
 
 	daSecret       string
 	daSecretLoaded bool
@@ -586,6 +588,9 @@ func (a *App) refreshStatusText(title, credit string, busy bool) {
 		a.menu.status(title, credit, busy, cur.ID != "", canBack)
 	}
 	settingsSetStatus(title, credit, cur.Path, cur.ID != "", busy, canBack)
+	if !busy {
+		a.refreshRecent()
+	}
 }
 
 // ---- helpers

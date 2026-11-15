@@ -25,6 +25,9 @@ enum {
 void wcInit(const char *sourceLabels, const char *intervalLabels);
 // pane: 0 = current picture, -1 = the settings tab used last.
 void wcShow(int pane);
+// Picture grid in the menu-bar menu, inserted below the item titled anchor.
+// paths and titles are newline-separated, newest first.
+void wcSetRecent(const char *anchor, const char *paths, const char *titles);
 // Show or hide the menu-bar icon and the Dock icon (at least one should be on).
 void wcSetPresence(int menuBar, int dock);
 void wcWatchLaunch(void);

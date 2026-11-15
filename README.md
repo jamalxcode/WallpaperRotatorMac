@@ -51,7 +51,8 @@ has Next Wallpaper and Settings…. The window opens on the desktop you're using
 ⌘W closes the window, ⌘Q quits, and the usual editing shortcuts work in the text fields. **Help →
 Wallpaper Rotator Help** opens this page.
 
-The menu-bar icon has the same main actions.
+The menu-bar icon has the same main actions. Its **Recent Wallpapers** grid shows the last 9 pictures: click one
+to open it, with the others, in Preview, or ⌥-click it to put it back on your desktop.
 
 **Updates:** choose **Check for Updates…** from the Wallpaper Rotator menu, the menu-bar icon, or
 the Dock icon. It asks GitHub for the latest release and, if there's a newer one, can download it,

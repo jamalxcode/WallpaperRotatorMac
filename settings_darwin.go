@@ -26,6 +26,30 @@ func goLaunchKind(atLogin C.int) {
 	}
 }
 
+//export goRecentClicked
+func goRecentClicked(index, option C.int) {
+	a := theApp
+	if a == nil {
+		return
+	}
+	if option != 0 {
+		go a.ShowRecent(int(index))
+	} else {
+		go a.OpenRecentInPreview(int(index))
+	}
+}
+
+// setRecentGrid shows these pictures (newest first) in the menu's grid.
+func setRecentGrid(paths, titles []string) {
+	withCString(recentMenuTitle, func(anchor *C.char) {
+		withCString(strings.Join(paths, "\n"), func(p *C.char) {
+			withCString(strings.Join(titles, "\n"), func(t *C.char) {
+				C.wcSetRecent(anchor, p, t)
+			})
+		})
+	})
+}
+
 //export goQuitting
 func goQuitting(detail *C.char) { logQuit(C.GoString(detail)) }
 

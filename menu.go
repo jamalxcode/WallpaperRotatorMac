@@ -18,6 +18,8 @@ type Menu struct {
 
 func quitApp() { systray.Quit() }
 
+const recentMenuTitle = "Recent Wallpapers"
+
 func buildMenu(a *App) *Menu {
 	icon := menuIcon()
 	systray.SetIcon(icon)
@@ -32,6 +34,10 @@ func buildMenu(a *App) *Menu {
 	m.info.Disable()
 	m.credit = systray.AddMenuItem("", "")
 	m.credit.Disable()
+	systray.AddSeparator()
+	// The picture grid is inserted right below this label (recentMenuTitle).
+	recentLabel := systray.AddMenuItem(recentMenuTitle, "Click to open in Preview, ⌥-click to use as wallpaper")
+	recentLabel.Disable()
 	systray.AddSeparator()
 	m.next = systray.AddMenuItem("Next Wallpaper", "Change now")
 	m.prev = systray.AddMenuItem("Previous Wallpaper", "Go back to the last one")
