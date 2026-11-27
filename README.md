@@ -54,6 +54,10 @@ Wallpaper Rotator Help** opens this page.
 The menu-bar icon has the same main actions. Its **Recent Wallpapers** grid shows the last 9 pictures: click one
 to open it, with the others, in Preview, or ⌥-click it to put it back on your desktop.
 
+**Keep Screen On** in the menu-bar menu stops the display and the Mac from sleeping (it runs macOS's
+`caffeinate`). The item reads **☕ Keep Screen On — On** or **Keep Screen On — Off**, a ☕ shows
+next to the menu-bar icon while it's on, and it's remembered across restarts and updates.
+
 **Updates:** choose **Check for Updates…** from the Wallpaper Rotator menu, the menu-bar icon, or
 the Dock icon. It asks GitHub for the latest release and, if there's a newer one, can download it,
 replace the app and restart. Your settings, history and saved pictures are kept.

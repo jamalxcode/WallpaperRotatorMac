@@ -64,6 +64,10 @@ func main() {
 
 func (a *App) onReady() {
 	a.menu = buildMenu(a)
+	a.mu.Lock()
+	keepAwake := a.cfg.KeepAwake
+	a.mu.Unlock()
+	setKeepAwake(keepAwake)
 	var srcLabels, ivLabels []string
 	for _, s := range a.sources {
 		srcLabels = append(srcLabels, sourceLabels[s.Name()])

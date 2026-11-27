@@ -412,6 +412,11 @@ func (a *App) SetPresence(menuBar, dock bool) {
 	settingsSetPresence(menuBar, dock)
 }
 
+func (a *App) SetKeepAwake(on bool) {
+	a.update(func(c *Config) { c.KeepAwake = on })
+	setKeepAwake(on)
+}
+
 func (a *App) SetKeepRunning(on bool) { a.update(func(c *Config) { c.KeepRunning = on }) }
 
 func (a *App) SetSkipAI(skip bool) {

@@ -11,9 +11,9 @@ const siteURL = "https://go.sala.company"
 // Menu is the menu-bar icon's menu. It only displays state and forwards
 // clicks to App; App.syncUI / refreshStatus keep it current.
 type Menu struct {
-	info, credit, next, prev, ban, pause, open, save, login *systray.MenuItem
-	intervals                                               map[int]*systray.MenuItem
-	sources                                                 map[string]*systray.MenuItem
+	info, credit, next, prev, ban, pause, open, save, login, awake *systray.MenuItem
+	intervals                                                      map[int]*systray.MenuItem
+	sources                                                        map[string]*systray.MenuItem
 }
 
 func quitApp() { systray.Quit() }
@@ -54,6 +54,7 @@ func buildMenu(a *App) *Menu {
 	for _, s := range a.sources {
 		m.sources[s.Name()] = src.AddSubMenuItemCheckbox(sourceLabels[s.Name()], "", false)
 	}
+	m.awake = systray.AddMenuItemCheckbox("Keep Screen On — Off", "Don't let the display or the Mac sleep (caffeinate)", false)
 	m.login = systray.AddMenuItemCheckbox("Start at Login", "", false)
 	show := systray.AddMenuItem("Show Wallpaper Rotator", "Open the window with the current picture")
 	settings := systray.AddMenuItem("Settings…", "Sources, DeviantArt and general options")
@@ -107,6 +108,11 @@ func buildMenu(a *App) *Menu {
 				a.OpenPage()
 			case <-m.save.ClickedCh:
 				go a.SaveCurrent()
+			case <-m.awake.ClickedCh:
+				a.mu.Lock()
+				on := !a.cfg.KeepAwake
+				a.mu.Unlock()
+				go a.SetKeepAwake(on)
 			case <-m.login.ClickedCh:
 				go a.SetLogin(loginStatus() != LoginOn)
 			case <-show.ClickedCh:
@@ -148,12 +154,23 @@ func (m *Menu) sync(cfg Config, sources []Source, login LoginStatus, pauseReason
 		check(m.sources[s.Name()], cfg.Weights[s.Name()] > 0)
 	}
 	check(m.login, login == LoginOn)
+	check(m.awake, cfg.KeepAwake)
+	if cfg.KeepAwake {
+		m.awake.SetTitle("☕ Keep Screen On — On")
+		systray.SetTitle("☕") // shown next to the icon while the screen is kept on
+	} else {
+		m.awake.SetTitle("Keep Screen On — Off")
+		systray.SetTitle("")
+	}
 	if cfg.Paused {
 		m.pause.SetTitle("Resume")
 	} else {
 		m.pause.SetTitle("Pause")
 	}
 	tip := appName
+	if cfg.KeepAwake {
+		tip += " · keeping the screen on"
+	}
 	if pauseReason != "" {
 		tip += " (" + pauseReason + ")"
 	}
