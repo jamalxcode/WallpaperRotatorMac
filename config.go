@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -70,11 +72,27 @@ type Config struct {
 
 func loadConfig() Config { return loadConfigFrom(configPath) }
 
+// loadConfigFrom reads the settings. If config.json is missing or unreadable
+// it falls back to config.json.bak (the previous save), so a bad file never
+// resets the settings or the DeviantArt client ID.
 func loadConfigFrom(path string) Config {
-	c := Config{IntervalMin: 4}
-	if b, err := os.ReadFile(path); err == nil {
-		_ = json.Unmarshal(b, &c)
+	var c Config
+	for _, p := range []string{path, path + ".bak"} {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		c = Config{IntervalMin: 4}
+		if err := json.Unmarshal(b, &c); err == nil {
+			if p != path {
+				log.Print("config.json was missing or unreadable; restored settings from ", p)
+			}
+			c.normalize()
+			return c
+		}
+		log.Printf("can't read %s: %v", p, err)
 	}
+	c = Config{IntervalMin: 4}
 	c.normalize()
 	return c
 }
@@ -115,10 +133,26 @@ func (c *Config) normalize() {
 
 func (c Config) save() { c.saveTo(configPath) }
 
+// saveTo writes the settings to a temporary file and renames it into place,
+// so quitting or updating mid-save can't leave a half-written config.json.
+// The previous version is kept as config.json.bak.
 func (c Config) saveTo(path string) {
-	b, _ := json.MarshalIndent(c, "", "  ")
-	_ = os.WriteFile(path, b, 0o600)
-	_ = os.Chmod(path, 0o600)
+	b, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+		log.Print("saving settings: ", err)
+		return
+	}
+	_ = os.Chmod(tmp, 0o600)
+	if old, err := os.ReadFile(path); err == nil && json.Valid(old) && !bytes.Equal(old, b) {
+		_ = os.WriteFile(path+".bak", old, 0o600)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		log.Print("saving settings: ", err)
+	}
 }
 
 // migrateLegacy moves data from the old "Wallpaper Changer" install, once.

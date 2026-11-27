@@ -86,6 +86,16 @@ func NewApp() *App {
 			log.Print("saving DeviantArt secret: ", err)
 		}
 	}
+	// Keep the client ID backed up next to the secret, and bring it back if
+	// the settings ever lost it.
+	if id := a.cfg.DeviantArtClientID; id != "" {
+		if readSecretFile(daIDPath) != id {
+			_ = saveDeviantID(id)
+		}
+	} else if id := savedDeviantID(); id != "" {
+		a.cfg.DeviantArtClientID = id
+		log.Print("restored the DeviantArt client ID from ", daIDPath)
+	}
 	a.cfg.save()
 	return a
 }
@@ -452,6 +462,9 @@ func (a *App) SetDeviantKeys(id, secret string) {
 	if err := saveDeviantSecret(secret); err != nil {
 		a.refreshDeviant("❌ Couldn't save the keys: " + err.Error())
 		return
+	}
+	if err := saveDeviantID(id); err != nil {
+		log.Print("backing up the DeviantArt client ID: ", err)
 	}
 	a.mu.Lock()
 	a.daSecret, a.daSecretLoaded = secret, true

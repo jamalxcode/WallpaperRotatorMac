@@ -163,3 +163,27 @@ func TestSaveTargetKeepsDifferentPictures(t *testing.T) {
 		t.Error("first picture was overwritten")
 	}
 }
+
+func TestConfigSurvivesBadFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	c := loadConfigFrom(path)
+	c.IntervalMin, c.DeviantArtClientID = 30, "my-id"
+	c.saveTo(path)
+	c.IntervalMin = 10
+	c.saveTo(path) // the 30-minute version becomes config.json.bak
+
+	if got := loadConfigFrom(path); got.IntervalMin != 10 || got.DeviantArtClientID != "my-id" {
+		t.Fatalf("loaded %d %q, want 10 my-id", got.IntervalMin, got.DeviantArtClientID)
+	}
+	os.WriteFile(path, []byte(`{"interval_minutes": 1`), 0o600) // half-written
+	if got := loadConfigFrom(path); got.IntervalMin != 30 || got.DeviantArtClientID != "my-id" {
+		t.Errorf("after a broken config.json got %d %q, want the backup (30 my-id)", got.IntervalMin, got.DeviantArtClientID)
+	}
+	os.Remove(path)
+	if got := loadConfigFrom(path); got.DeviantArtClientID != "my-id" {
+		t.Errorf("after a missing config.json got ID %q, want my-id from the backup", got.DeviantArtClientID)
+	}
+	if _, err := os.Stat(path + ".tmp"); !os.IsNotExist(err) {
+		t.Error("temporary file left behind")
+	}
+}

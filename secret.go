@@ -13,6 +13,10 @@ import (
 // signature changes (every update), so it moved here.
 var daSecretPath = filepath.Join(supportDir, "deviantart-secret")
 
+// The client ID lives in config.json, with a copy here so the keys survive
+// even if the settings file is ever lost.
+var daIDPath = filepath.Join(supportDir, "deviantart-client-id")
+
 func readSecretFile(path string) string {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -57,7 +61,21 @@ func saveDeviantSecret(secret string) error {
 	return writeSecretFile(daSecretPath, secret)
 }
 
+func saveDeviantID(id string) error {
+	return writeSecretFile(daIDPath, id)
+}
+
+// savedDeviantID returns the backed-up client ID, but only when a secret is
+// saved too (an ID alone is no use).
+func savedDeviantID() string {
+	if readSecretFile(daSecretPath) == "" {
+		return ""
+	}
+	return readSecretFile(daIDPath)
+}
+
 func deleteDeviantSecret() {
 	_ = os.Remove(daSecretPath)
+	_ = os.Remove(daIDPath)
 	keychainDelete(daKeychainAccount)
 }
