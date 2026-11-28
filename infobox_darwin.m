@@ -10,7 +10,7 @@ void wcInfoBoxChecked(int on); // settings_darwin.m
 // Everything is drawn in this design size and scaled to the window.
 static const CGFloat kW = 828, kH = 574, kPad = 28;
 // Share of the display's width the box takes, and the panel's opacity.
-static const CGFloat kScreenShare = 0.44, kPanelAlpha = 0.5;
+static const CGFloat kScreenShare = 0.44, kPanelAlpha = 0.22;
 
 @interface WCInfoView : NSView
 @property(copy) NSDictionary *data;
@@ -19,8 +19,8 @@ static const CGFloat kScreenShare = 0.44, kPanelAlpha = 0.5;
 @implementation WCInfoView
 - (BOOL)isFlipped { return YES; }
 
-static NSColor *primary(void) { return [NSColor colorWithWhite:1 alpha:0.96]; }
-static NSColor *secondary(void) { return [NSColor colorWithWhite:1 alpha:0.78]; }
+static NSColor *primary(void) { return NSColor.whiteColor; }
+static NSColor *secondary(void) { return [NSColor colorWithWhite:0.9 alpha:1]; } // solid, just a little greyer
 static NSColor *upColor(void) { return [NSColor colorWithSRGBRed:0.42 green:0.66 blue:1.0 alpha:1]; }
 static NSColor *downColor(void) { return [NSColor colorWithSRGBRed:0.96 green:0.70 blue:0.29 alpha:1]; }
 
@@ -31,9 +31,9 @@ static NSShadow *textShadow(void) {
 	static NSShadow *s;
 	if (!s) {
 		s = [NSShadow new];
-		s.shadowColor = [NSColor colorWithWhite:0 alpha:0.85];
+		s.shadowColor = [NSColor colorWithWhite:0 alpha:0.95];
 		s.shadowOffset = NSMakeSize(0, -1.5); // down (shadow offsets ignore the flipped view)
-		s.shadowBlurRadius = 3;
+		s.shadowBlurRadius = 4;
 	}
 	return s;
 }
@@ -63,8 +63,11 @@ static NSString *str(NSDictionary *d, NSString *k) {
 }
 
 static void rule(CGFloat y) {
-	[[NSColor colorWithWhite:1 alpha:0.22] setFill];
-	NSRectFill(NSMakeRect(kPad, y, kW - 2 * kPad, 1));
+	[NSGraphicsContext saveGraphicsState];
+	[textShadow() set];
+	[[NSColor colorWithWhite:1 alpha:0.55] setFill];
+	NSRectFillUsingOperation(NSMakeRect(kPad, y, kW - 2 * kPad, 1), NSCompositingOperationSourceOver);
+	[NSGraphicsContext restoreGraphicsState];
 }
 
 static NSString *timeIn(NSTimeZone *tz, NSDate *now) {

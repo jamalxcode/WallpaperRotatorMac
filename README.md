@@ -62,7 +62,7 @@ across restarts and updates.
 of the main display, over every wallpaper: the time and weather where you are (from your Mac's time
 zone, via Open-Meteo), New York, London, Singapore and Tokyo times, this month, and the day's moves for
 BTC, XAUT, SPY, QQQ, DIA, XSD and AIQ from [heat.sala.company](https://heat.sala.company), and the title and credit of the picture on your desktop. The panel is
-half see-through and sits below windows and desktop icons. Prices refresh every 10 minutes, the weather
+a light, mostly see-through shade with solid, shadowed text, and sits below windows and desktop icons. Prices refresh every 10 minutes, the weather
 every 30.
 
 **Updates:** choose **Check for Updates…** from the Wallpaper Rotator menu, the menu-bar icon, or
