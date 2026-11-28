@@ -258,6 +258,14 @@ static NSString *timeIn(NSTimeZone *tz, NSDate *now) {
 // own small, invisible window just above the desktop icons, so only those
 // spots catch the mouse (with a pointing hand and a soft highlight).
 
+// Opens an app the way Finder does, so one that is already running gets a "reopen" and shows its window.
+static void reopenApp(NSString *bundleID) {
+	[NSTask launchedTaskWithExecutableURL:[NSURL fileURLWithPath:@"/usr/bin/open"]
+	                            arguments:@[ @"-b", bundleID ]
+	                                error:nil
+	                   terminationHandler:nil];
+}
+
 static void openLink(WCLink kind) {
 	NSWorkspace *ws = NSWorkspace.sharedWorkspace;
 	NSURL *app = nil;
@@ -265,14 +273,21 @@ static void openLink(WCLink kind) {
 	case WCLinkHeat:
 		[ws openURL:[NSURL URLWithString:@"https://heat.sala.company/"]];
 		return;
-	case WCLinkCalendar:
-		// Smart Cal (go.sala.company's calendar app), or Google Calendar on the web without it.
-		app = [ws URLForApplicationWithBundleIdentifier:@"company.sala.personalcalendar"];
-		if (!app) {
+	case WCLinkCalendar: {
+		// Smart Cal, or Google Calendar on the web without it. Smart Cal is a menu-bar app: just
+		// activating it shows nothing, so it's "opened again" like a Finder click (open -b), which
+		// makes it show its drop-down under the menu-bar icon.
+		NSString *smartCal = @"company.sala.personalcalendar";
+		if (![ws URLForApplicationWithBundleIdentifier:smartCal]) {
 			[ws openURL:[NSURL URLWithString:@"https://calendar.google.com/"]];
 			return;
 		}
-		break;
+		BOOL running = [NSRunningApplication runningApplicationsWithBundleIdentifier:smartCal].count > 0;
+		reopenApp(smartCal);
+		if (!running) // the first open only launches it; open it again once it's up to show the drop-down
+			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{ reopenApp(smartCal); });
+		return;
+	}
 	case WCLinkWeather:
 		app = [ws URLForApplicationWithBundleIdentifier:@"com.apple.weather"];
 		break;
