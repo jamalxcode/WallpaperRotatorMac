@@ -419,6 +419,12 @@ func (a *App) SetKeepAwake(on bool) {
 
 func (a *App) SetKeepRunning(on bool) { a.update(func(c *Config) { c.KeepRunning = on }) }
 
+// SetInfoBox shows or hides the clock, weather and markets panel on the desktop.
+func (a *App) SetInfoBox(on bool) {
+	a.update(func(c *Config) { c.InfoBox = on })
+	theInfoBox.set(on)
+}
+
 func (a *App) SetSkipAI(skip bool) {
 	a.update(func(c *Config) { c.DeviantArtAllowAI = !skip })
 	a.fetcher.Reset("DeviantArt")

@@ -80,6 +80,10 @@ func (a *App) onReady() {
 	menuBar, dock := !a.cfg.HideMenuBarIcon, !a.cfg.HideDockIcon
 	a.mu.Unlock()
 	settingsSetPresence(menuBar, dock)
+	a.mu.Lock()
+	infoOn := a.cfg.InfoBox
+	a.mu.Unlock()
+	theInfoBox.set(infoOn)
 	a.syncUI()
 	a.refreshStatus(false)
 	a.mu.Lock()

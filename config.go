@@ -64,6 +64,8 @@ type Config struct {
 	// Where the app shows up. At least one of the two stays visible.
 	HideMenuBarIcon bool `json:"hide_menu_bar_icon,omitempty"`
 	HideDockIcon    bool `json:"hide_dock_icon,omitempty"`
+	// InfoBox shows the clock, weather and markets panel in the middle of the desktop.
+	InfoBox bool `json:"info_box,omitempty"`
 	// Settings window opens automatically on the very first launch.
 	WelcomeShown bool `json:"welcome_shown"`
 

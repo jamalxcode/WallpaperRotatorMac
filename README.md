@@ -58,6 +58,13 @@ to open it, with the others, in Preview, or ⌥-click it to put it back on your 
 `caffeinate`). The item reads **☕ Keep Screen On — On** or **Keep Screen On — Off**, a ☕ shows
 next to the menu-bar icon while it's on, and it's remembered across restarts and updates.
 
+**Info box:** turn on **Show the info box on the desktop** in the General tab for a panel in the middle
+of the main display, over every wallpaper: the time and weather where you are (from your Mac's time
+zone, via Open-Meteo), New York, London, Singapore and Tokyo times, this month, and the day's moves for
+BTC, XAUT, SPY, QQQ, DIA, XSD and AIQ from [heat.sala.company](https://heat.sala.company). The panel is
+half see-through and sits below windows and desktop icons. Prices refresh every 10 minutes, the weather
+every 30.
+
 **Updates:** choose **Check for Updates…** from the Wallpaper Rotator menu, the menu-bar icon, or
 the Dock icon. It asks GitHub for the latest release and, if there's a newer one, can download it,
 replace the app and restart. Your settings, history and saved pictures are kept.

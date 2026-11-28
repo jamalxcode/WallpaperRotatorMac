@@ -19,6 +19,7 @@ enum {
 	WCActionCheckUpdates = 13,
 	WCActionPresence = 14,   // index = show in menu bar, value = show in Dock
 	WCActionRemoveDeviantKeys = 15,
+	WCActionInfoBox = 16,    // value = show the desktop info box
 };
 
 // Labels are newline-separated. All functions are safe to call from any thread.
@@ -30,6 +31,8 @@ void wcShow(int pane);
 void wcSetRecent(const char *anchor, const char *paths, const char *titles);
 // Show or hide the menu-bar icon and the Dock icon (at least one should be on).
 void wcSetPresence(int menuBar, int dock);
+// Desktop info box: shown when on, with data as JSON (see infoData in infobox.go).
+void wcSetInfoBox(int on, const char *data);
 void wcWatchLaunch(void);
 // Modal alert with up to three buttons (pass NULL for unused ones); returns 1..3.
 // Must not be called on the main thread.

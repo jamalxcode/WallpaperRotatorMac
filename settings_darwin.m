@@ -43,7 +43,7 @@ static NSArray<NSString *> *weightNames(void) {
 @property(strong) NSImageView *thumb;
 @property(strong) NSTextField *titleLabel, *creditLabel, *noteLabel;
 @property(strong) NSButton *prevButton, *nextButton, *banButton, *openButton, *saveButton;
-@property(strong) NSButton *pauseBox, *keepRunningBox, *loginBox;
+@property(strong) NSButton *pauseBox, *keepRunningBox, *loginBox, *infoBoxBox;
 @property(strong) NSPopUpButton *intervalPopup;
 @property(strong) NSMutableArray<NSSlider *> *weightSliders;
 @property(strong) NSMutableArray<NSTextField *> *weightLabels;
@@ -223,6 +223,12 @@ static NSStackView *pane(NSArray<NSView *> *views) {
 	          @"open it from the menu bar or by opening the app again.",
 	          11, NO, NSColor.secondaryLabelColor);
 	presenceHelp.preferredMaxLayoutWidth = inner;
+	self.infoBoxBox = [self checkbox:@"Show the info box on the desktop" action:@selector(infoBox:)];
+	NSTextField *infoHelp =
+	    label(@"A clock, weather, world times, the month and market moves from heat.sala.company, "
+	          @"in the middle of the main display over every wallpaper. Windows and desktop icons stay on top.",
+	          11, NO, NSColor.secondaryLabelColor);
+	infoHelp.preferredMaxLayoutWidth = inner;
 	NSStackView *generalPane = pane(@[
 		self.loginBox,
 		self.keepRunningBox,
@@ -230,6 +236,9 @@ static NSStackView *pane(NSArray<NSView *> *views) {
 		self.menuBarBox,
 		self.dockBox,
 		presenceHelp,
+		separator(),
+		self.infoBoxBox,
+		infoHelp,
 	]);
 
 	self.panes = @[ nowPane, sourcesPane, daPane, generalPane ];
@@ -401,6 +410,7 @@ static NSStackView *pane(NSArray<NSView *> *views) {
 - (BOOL)on:(NSButton *)b { return b.state == NSControlStateValueOn; }
 - (void)pause:(NSButton *)b { goSettingsAction(WCActionPause, 0, [self on:b]); }
 - (void)keepRunning:(NSButton *)b { goSettingsAction(WCActionKeepRunning, 0, [self on:b]); }
+- (void)infoBox:(NSButton *)b { goSettingsAction(WCActionInfoBox, 0, [self on:b]); }
 - (void)login:(NSButton *)b {
 	// a "mixed" (needs approval) box cycles to on; treat anything but off as on
 	goSettingsAction(WCActionLogin, 0, b.state != NSControlStateValueOff);
@@ -877,4 +887,9 @@ void wcSetRecent(const char *anchor, const char *paths, const char *titles) {
 		gRecentItem.hidden = ps.count == 0;
 		label.hidden = ps.count == 0;
 	});
+}
+
+// Keeps the General tab's info box checkbox in step (called by infobox_darwin.m on the main thread).
+void wcInfoBoxChecked(int on) {
+	gController.infoBoxBox.state = on ? NSControlStateValueOn : NSControlStateValueOff;
 }

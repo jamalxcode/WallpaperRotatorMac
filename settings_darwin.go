@@ -97,6 +97,8 @@ func goSettingsAction(action, index, value C.int) {
 			a.RemoveDeviantKeys()
 		case C.WCActionPresence:
 			a.SetPresence(i != 0, on)
+		case C.WCActionInfoBox:
+			a.SetInfoBox(on)
 		}
 	}()
 }
@@ -131,6 +133,11 @@ func showSettings() { C.wcShow(-1) }
 func showMain()     { C.wcShow(0) }
 
 func settingsSetPresence(menuBar, dock bool) { C.wcSetPresence(cbool(menuBar), cbool(dock)) }
+
+// infoBoxSet shows (with the given JSON, see infoData) or hides the desktop info box.
+func infoBoxSet(on bool, data string) {
+	withCString(data, func(d *C.char) { C.wcSetInfoBox(cbool(on), d) })
+}
 
 // watchLaunch must run on the main thread before systray.Run.
 func watchLaunch() { C.wcWatchLaunch() }
