@@ -82,7 +82,7 @@ General) for a panel in the middle of the main display, over every wallpaper:
   [radio.sala.company](https://radio.sala.company/);
 - the title and credit of the picture on your desktop.
 
-The panel is a light, mostly see-through shade with solid, shadowed text. It sits below windows and
+The panel is a light, mostly see-through shade with solid text, outlined in dark with a soft glow so it reads on bright pictures too. It sits below windows and
 desktop icons, and lets clicks through to the desktop except on its links: the time or world clocks
 open **Clock**, the weather opens **Weather**, 📺 and 📻 open their sites, and
 "heat.sala.company" opens the site. Like the

@@ -54,12 +54,47 @@ static NSDictionary *attrs(NSFont *f, NSColor *c, CGFloat kern) {
 	};
 }
 
+// Text is drawn twice so it reads on any picture: first a dark outline with a soft glow around it,
+// then the solid fill on top. The outline is about 1 pt outside each letter whatever the font size.
+static NSShadow *glow(void) {
+	static NSShadow *s;
+	if (!s) {
+		s = [NSShadow new];
+		s.shadowColor = [NSColor colorWithWhite:0 alpha:0.9];
+		s.shadowOffset = NSMakeSize(0, -1);
+		s.shadowBlurRadius = 6;
+	}
+	return s;
+}
+
+static NSDictionary *outlined(NSDictionary *a) {
+	NSMutableDictionary *o = [a mutableCopy];
+	CGFloat size = [(NSFont *)a[NSFontAttributeName] pointSize];
+	o[NSStrokeColorAttributeName] = [NSColor colorWithWhite:0 alpha:0.8];
+	o[NSStrokeWidthAttributeName] = @(MIN(14, 220 / MAX(size, 1))); // positive = outline only, % of size
+	o[NSShadowAttributeName] = glow();
+	return o;
+}
+
+static NSDictionary *filled(NSDictionary *a) {
+	NSMutableDictionary *f = [a mutableCopy];
+	[f removeObjectForKey:NSShadowAttributeName]; // the outline pass already casts it
+	return f;
+}
+
+static void drawOutlined(NSString *s, NSRect r, NSDictionary *a) {
+	NSStringDrawingOptions o = NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingTruncatesLastVisibleLine;
+	[s drawWithRect:r options:o attributes:outlined(a)];
+	[s drawWithRect:r options:o attributes:filled(a)];
+}
+
 // Draws s with its top at y; align -1 left of x, 0 centred on x, 1 right of x. Returns its width.
 static CGFloat text(NSString *s, CGFloat x, CGFloat y, int align, NSDictionary *a) {
 	if (!s.length) return 0;
 	NSSize sz = [s sizeWithAttributes:a];
 	CGFloat left = align < 0 ? x : align == 0 ? x - sz.width / 2 : x - sz.width;
-	[s drawAtPoint:NSMakePoint(left, y) withAttributes:a];
+	[s drawAtPoint:NSMakePoint(left, y) withAttributes:outlined(a)];
+	[s drawAtPoint:NSMakePoint(left, y) withAttributes:filled(a)];
 	return sz.width;
 }
 
@@ -245,13 +280,9 @@ static NSString *timeIn(NSTimeZone *tz, NSDate *now) {
 		CGFloat tailW = MIN([tail sizeWithAttributes:ca].width, room * 0.6);
 		CGFloat titleW = MIN([picture sizeWithAttributes:ta].width, room - tailW);
 		if (picture.length)
-			[picture drawWithRect:NSMakeRect(x, y, titleW, 24)
-			              options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingTruncatesLastVisibleLine
-			           attributes:ta];
+			drawOutlined(picture, NSMakeRect(x, y, titleW, 24), ta);
 		if (tail.length)
-			[tail drawWithRect:NSMakeRect(x + titleW, y + 1, room - titleW, 24)
-			           options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingTruncatesLastVisibleLine
-			        attributes:ca];
+			drawOutlined(tail, NSMakeRect(x + titleW, y + 1, room - titleW, 24), ca);
 	}
 
 	if (![links isEqualToArray:self.links ?: @[]]) {
