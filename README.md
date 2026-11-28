@@ -41,8 +41,9 @@ its Dock icon, and stays hidden when macOS starts it at login. It has four tabs:
   Save to Pictures and Pause.
 - **Sources**: how often to change and how often each source appears.
 - **DeviantArt**: your keys.
-- **General**: Start at login, Low Power Mode, and **Show in menu bar** / **Show in Dock**. One of the
-  two always stays on. Without the Dock icon the app is also left out of ⌘-Tab and Force Quit.
+- **General**: Start at login, Low Power Mode, **Show in menu bar** / **Show in Dock** (one of the
+  two always stays on; without the Dock icon the app is also left out of ⌘-Tab and Force Quit), and
+  the info box.
 
 **Window → Wallpaper Rotator** (⌘0) opens the current picture, and **Wallpaper Rotator → Settings…**
 (⌘,) opens the settings tabs. Both are also in the menu-bar icon's menu, and the Dock icon's menu
@@ -51,21 +52,42 @@ has Next Wallpaper and Settings…. The window opens on the desktop you're using
 ⌘W closes the window, ⌘Q quits, and the usual editing shortcuts work in the text fields. **Help →
 Wallpaper Rotator Help** opens this page.
 
-The menu-bar icon has the same main actions. Its **Recent Wallpapers** grid shows the last 9 pictures: click one
-to open it, with the others, in Preview, or ⌥-click it to put it back on your desktop.
+### The menu-bar menu
+Grouped by what each part is for:
 
-**Keep Screen On** in the menu-bar menu stops the display and the Mac from sleeping (it runs macOS's
-`caffeinate`). A checkmark shows it's on, a ☕ shows next to the menu-bar icon, and it's remembered
-across restarts and updates.
+1. **Now showing:** the picture's title and credit, **Open Image Page**, **Save to Pictures**.
+2. **Changing:** **Next Wallpaper**, **Previous Wallpaper**, **Never Show This Again**, **Pause / Resume**.
+3. **Recent Wallpapers:** a 3×3 grid of the last 9 pictures. Click one to open it, with the others,
+   in Preview; ⌥-click it to put it back on your desktop.
+4. **What gets picked:** **Change Every ▸** and **Sources ▸**.
+5. **On/off options** (a checkmark shows which are on): **Show Info Box**, **Keep Screen On**,
+   **Start at Login**.
+6. **The app:** **Show Wallpaper Rotator**, **Settings…**, **Check for Updates…**, then **Quit**.
 
-**Info box:** choose **Show Info Box** in the menu-bar menu (or the checkbox in Settings → General) for a panel in the middle
-of the main display, over every wallpaper: the time and weather where you are (from your Mac's time
-zone, via Open-Meteo), New York, London, Singapore and Tokyo times, this month, and the day's moves for
-BTC, XAUT, SPY, QQQ, DIA, XSD and AIQ from [heat.sala.company](https://heat.sala.company), and the title and credit of the picture on your desktop. The panel is
-a light, mostly see-through shade with solid, shadowed text, and sits below windows and desktop icons. Prices refresh every 10 minutes, the weather
-every 30. Click the time or world clocks to open Clock, the weather to open Weather, and "heat.sala.company" to open the site; the rest of the box lets clicks through to the desktop.
+**Keep Screen On** stops the display and the Mac from sleeping (it runs macOS's `caffeinate`). A ☕
+shows next to the menu-bar icon while it's on, and it's remembered across restarts and updates.
 
-**Updates:** choose **Check for Updates…** from the Wallpaper Rotator menu, the menu-bar icon, or
+### The info box
+Turn on **Show Info Box** in the menu-bar menu (or **Show the info box on the desktop** in Settings →
+General) for a panel in the middle of the main display, over every wallpaper:
+
+- the time, date and weather where you are (the city comes from your Mac's time zone; weather from
+  [Open-Meteo](https://open-meteo.com)), refreshed every 30 minutes;
+- New York, London, Singapore and Tokyo times;
+- this month, with today highlighted;
+- the day's moves for BTC, XAUT, SPY, QQQ, DIA, XSD and AIQ from
+  [heat.sala.company](https://heat.sala.company), refreshed every 10 minutes, and whether the US
+  market is open;
+- the title and credit of the picture on your desktop.
+
+The panel is a light, mostly see-through shade with solid, shadowed text. It sits below windows and
+desktop icons, and lets clicks through to the desktop except on its links: the time or world clocks
+open **Clock**, the weather opens **Weather**, and "heat.sala.company" opens the site. Like the
+pictures, it downloads nothing while the screen is locked, or on Low Power Mode or a phone hotspot
+unless you've turned that pause off.
+
+### Updates
+Choose **Check for Updates…** from the Wallpaper Rotator menu, the menu-bar icon, or
 the Dock icon. It asks GitHub for the latest release and, if there's a newer one, can download it,
 replace the app and restart. Your settings, history and saved pictures are kept.
 
@@ -132,8 +154,8 @@ No filter is perfect. You can also turn every source down except NASA and Wildli
 | What | Where |
 |---|---|
 | Settings | `~/Library/Application Support/WallpaperRotator/config.json` (readable only by you) |
-| Recent pictures (last ~30) and history | `~/Library/Application Support/WallpaperRotator/` |
-| Log (capped at 2 MB) | `~/Library/Logs/WallpaperRotator.log` |
+| Recent pictures (last 35) and history | `~/Library/Application Support/WallpaperRotator/` |
+| Log (capped at 2 MB), including why the app quit | `~/Library/Logs/WallpaperRotator.log` |
 | DeviantArt secret | `~/Library/Application Support/WallpaperRotator/deviantart-secret` (readable only by you) |
 
 Upgrading from the old "Wallpaper Changer" moves your settings, history and DeviantArt secret over
@@ -147,26 +169,41 @@ make release                                    # universal app + zip in build/
 go run . --once --dry --source Wildlife         # fetch one picture without setting it
 go run . --check some.jpg                       # run the on-device image check on a file
 ```
-GitHub Actions runs the tests and a universal build on every push. Pushing a tag like `v1.2.0`
-publishes a release with the zipped app.
+GitHub Actions runs the tests and a universal build on every push. Work goes straight to `main`;
+pushing a tag like `v1.6.5` publishes a release with the zipped app, which **Check for Updates…**
+then offers to everyone.
+
+More notes: [docs/DESIGN-IDEAS.md](docs/DESIGN-IDEAS.md) (ideas not built yet) and
+[docs/CONVERSATION.md](docs/CONVERSATION.md) (how the November 2026 features were built, and what
+was learned).
 
 | File | Role |
 |---|---|
 | `main.go` | Startup, command-line modes, single-instance handling |
 | `app.go` | App state and every action (shared by menu and window), pausing, offline mode |
 | `menu.go` | Menu-bar icon ([fyne.io/systray](https://github.com/fyne-io/systray)) |
+| `recent.go` | Recent Wallpapers grid: picks the last 9, opens them in Preview, puts one back |
+| `infobox.go` / `infobox_darwin.m` | Info box: weather, heat.sala.company prices, US market hours / the panel and its click areas |
+| `awake.go` | Keep Screen On (`caffeinate`) |
+| `update.go` | Check for Updates: GitHub release, download, replace, restart |
+| `secret.go` | DeviantArt secret file (and the one-time move out of the Keychain) |
+| `quitlog.go` | Logs why the app quit, and notices a run that ended without quitting |
+| `dedupe.go` | Picture fingerprints, so re-uploads of a recent picture are skipped |
 | `fetch.go` | Weighted source choice, per-source cache and back-off, size probe, downloads, image-check policy |
 | `config.go` | Settings, migration, history, seen and banned lists, cache and log housekeeping |
 | `sources*.go` | One client per picture source |
 | `filter.go` | Word filters |
 | `platform_darwin.m/.h/.go` | macOS APIs: wallpaper, Spaces, lock/sleep/power/network monitor, login item (`SMAppService`), Keychain, Vision |
-| `settings_darwin.m/.h/.go` | Native window (tabs), app menus, Dock menu, alerts |
+| `settings_darwin.m/.h/.go` | Native window (tabs), app menus, Dock menu, alerts, the Recent grid view |
 | `assets/icon.png` | App icon (`make` builds `AppIcon.icns` from it) |
 
 ## Known limitations
 - macOS only lets apps set the wallpaper of the **current** Space. Other Spaces get the new picture
   when you switch to them.
 - Full-screen app Spaces have no wallpaper.
+- The Recent grid and the menu-bar on/off switch reach into fyne.io/systray's internals; a new
+  version of that library could break them.
+- The US market line knows NYSE holidays and early closes for 2026 and 2027 only.
 
 ## License
 [MIT](LICENSE). The pictures belong to their sources: public domain or CC0, except DeviantArt art,
