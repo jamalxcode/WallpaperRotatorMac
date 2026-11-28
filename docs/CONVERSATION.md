@@ -1,7 +1,7 @@
 # How the November 2026 features were built
 
 A record of one long working session with Claude (7–28 November 2026): what was asked, what was
-built, and what was learned on the way. Releases v1.2.4 to v1.6.5 came out of it. (v1.5.0, Keep
+built, and what was learned on the way. Releases v1.2.4 to v1.6.6 came out of it. (v1.5.0, Keep
 Screen On, and the "keep settings safe across updates" change were made separately.)
 
 ## What was asked and built
@@ -18,6 +18,8 @@ Screen On, and the "keep settings safe across updates" change were made separate
 | 1.6.2 | "A better organised menu." | Menu grouped: now showing, changing, recent, what gets picked, on/off options, the app. New **Show Info Box** toggle. |
 | 1.6.3 | Picture title in the box, a lighter shade, clickable parts. | Current picture's title and credit at the bottom; shade 50% → 22% with solid text; the time opens Clock, the weather opens Weather, heat.sala.company opens the site. |
 | 1.6.3–1.6.5 | Clicking the month should open Smart Cal's drop-down. | 1.6.3 only brought Smart Cal forward (no drop-down); 1.6.4 sent a Finder-style reopen; still unreliable, so 1.6.5 removed it. |
+| 1.6.6 | "A large TV emoji linking to video.sala.company and a radio emoji linking to radio.sala.company, between the time and the temperature." | 📺 and 📻 at 46 pt, centred between the time and the weather, each with its own click area. Also fixed: Commons credits showed "&amp;" instead of "&". |
+| — | "Update the README, design ideas and our conversation." | The README covers the grouped menu and the info box; `docs/DESIGN-IDEAS.md` and this file were added. |
 
 ## Decisions
 
@@ -47,5 +49,10 @@ Screen On, and the "keep settings safe across updates" change were made separate
 - **Checking a desktop window without seeing the screen:** list windows with
   `CGWindowListCopyWindowInfo`, capture one with `screencapture -l <id>`, and lay that capture over
   the current wallpaper file to judge transparency.
+- **Some sources send HTML codes.** Wikimedia Commons credits arrive with codes like `&amp;`.
+  Removing tags isn't enough; `stripHTML` now decodes them too, and the info box decodes titles saved
+  by older versions.
+- **Links may go through a browser picker.** On this Mac, links open in Bumpr (which asks which
+  browser to use), so a click is proven by Bumpr or the browser coming to the front, not by a page.
 - **Release check:** after each tag, download the published zip, read its version with PlistBuddy and
   run `codesign --verify --deep`.

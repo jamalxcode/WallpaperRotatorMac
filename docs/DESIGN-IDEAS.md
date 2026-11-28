@@ -4,7 +4,8 @@ Ideas for Wallpaper Rotator that aren't built yet, from the review in November 2
 rough size: **S** (an afternoon), **M** (a day or two), **L** (more).
 
 Already done from that review: the current picture's title and credit in the info box, and the
-reorganised menu-bar menu (v1.6.2–v1.6.3).
+reorganised menu-bar menu (v1.6.2–v1.6.3). Since then the box also links to video.sala.company and
+radio.sala.company (v1.6.6).
 
 ## Fix first
 
@@ -33,6 +34,9 @@ library update can't break them silently.
   subject. The app already analyses every picture, so a detail map is cheap.
 - **More cards (S–M each):** the next calendar event, prayer times, sunrise and sunset, a heat.sala.company
   headline or a prediction-market figure.
+- **sala.company shortcuts (S–M):** choose which sites get an emoji (📺 video, 📻 radio, 🔥 heat,
+  🗺 maps…), and show what's on: the station playing on radio.sala.company under 📻, or the latest video
+  under 📺.
 - **US market holidays (S):** the list stops after 2027. Compute the rules, or read the dates from heat.
 - **Calendar click (tried, removed in v1.6.5):** opening Smart Cal's drop-down from the month didn't
   work reliably. Smart Cal answers a Finder-style "reopen" by showing its panel, but centred when it

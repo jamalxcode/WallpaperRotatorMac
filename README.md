@@ -78,13 +78,14 @@ General) for a panel in the middle of the main display, over every wallpaper:
 - the day's moves for BTC, XAUT, SPY, QQQ, DIA, XSD and AIQ from
   [heat.sala.company](https://heat.sala.company), refreshed every 10 minutes, and whether the US
   market is open;
+- a large 📺 and 📻 linking to [video.sala.company](https://video.sala.company/) and
+  [radio.sala.company](https://radio.sala.company/);
 - the title and credit of the picture on your desktop.
 
 The panel is a light, mostly see-through shade with solid, shadowed text. It sits below windows and
 desktop icons, and lets clicks through to the desktop except on its links: the time or world clocks
-open **Clock**, the weather opens **Weather**, the large 📺 and 📻 between them open
-[video.sala.company](https://video.sala.company/) and [radio.sala.company](https://radio.sala.company/),
-and "heat.sala.company" opens the site. Like the
+open **Clock**, the weather opens **Weather**, 📺 and 📻 open their sites, and
+"heat.sala.company" opens the site. Like the
 pictures, it downloads nothing while the screen is locked, or on Low Power Mode or a phone hotspot
 unless you've turned that pause off.
 
@@ -172,7 +173,7 @@ go run . --once --dry --source Wildlife         # fetch one picture without sett
 go run . --check some.jpg                       # run the on-device image check on a file
 ```
 GitHub Actions runs the tests and a universal build on every push. Work goes straight to `main`;
-pushing a tag like `v1.6.5` publishes a release with the zipped app, which **Check for Updates…**
+pushing a tag like `v1.6.6` publishes a release with the zipped app, which **Check for Updates…**
 then offers to everyone.
 
 More notes: [docs/DESIGN-IDEAS.md](docs/DESIGN-IDEAS.md) (ideas not built yet) and
