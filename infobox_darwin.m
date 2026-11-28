@@ -13,7 +13,7 @@ static const CGFloat kW = 828, kH = 574, kPad = 28;
 static const CGFloat kScreenShare = 0.44, kPanelAlpha = 0.22;
 
 // Parts of the box that open something when clicked.
-typedef NS_ENUM(NSInteger, WCLink) { WCLinkClock, WCLinkWeather, WCLinkHeat };
+typedef NS_ENUM(NSInteger, WCLink) { WCLinkClock, WCLinkWeather, WCLinkHeat, WCLinkCalendar };
 
 @interface WCInfoView : NSView
 @property(copy) NSDictionary *data;
@@ -173,6 +173,9 @@ static NSString *timeIn(NSTimeZone *tz, NSDate *now) {
 		     attrs(font(16, today ? NSFontWeightBold : NSFontWeightRegular), primary(), 0));
 	}
 
+	NSInteger rows = (offset + count + 6) / 7;
+	link(WCLinkCalendar, NSMakeRect(kPad, 222, calW, 283 + rowH * rows - 222));
+
 	// ---- Markets (from heat.sala.company)
 	CGFloat mx = 503, mr = kW - kPad;
 	text(@"MARKETS", mx, 226, -1, attrs(font(17, NSFontWeightMedium), primary(), 1));
@@ -262,6 +265,14 @@ static void openLink(WCLink kind) {
 	case WCLinkHeat:
 		[ws openURL:[NSURL URLWithString:@"https://heat.sala.company/"]];
 		return;
+	case WCLinkCalendar:
+		// Smart Cal (go.sala.company's calendar app), or Google Calendar on the web without it.
+		app = [ws URLForApplicationWithBundleIdentifier:@"company.sala.personalcalendar"];
+		if (!app) {
+			[ws openURL:[NSURL URLWithString:@"https://calendar.google.com/"]];
+			return;
+		}
+		break;
 	case WCLinkWeather:
 		app = [ws URLForApplicationWithBundleIdentifier:@"com.apple.weather"];
 		break;
