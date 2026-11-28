@@ -12,9 +12,16 @@ static const CGFloat kW = 828, kH = 574, kPad = 28;
 // Share of the display's width the box takes, and the panel's opacity.
 static const CGFloat kScreenShare = 0.44, kPanelAlpha = 0.22;
 
+// Parts of the box that open something when clicked.
+typedef NS_ENUM(NSInteger, WCLink) { WCLinkClock, WCLinkWeather, WCLinkHeat };
+
 @interface WCInfoView : NSView
 @property(copy) NSDictionary *data;
+// Click areas from the last draw, in design coordinates: @[ @(WCLink), NSValue(rect) ].
+@property(copy) NSArray *links;
 @end
+
+static void updateLinkWindows(void);
 
 @implementation WCInfoView
 - (BOOL)isFlipped { return YES; }
@@ -87,17 +94,24 @@ static NSString *timeIn(NSTimeZone *tz, NSDate *now) {
 	[panel fill];
 
 	// ---- Local time, date and weather
-	text(timeIn(NSTimeZone.localTimeZone, now), kPad - 2, 18, -1, attrs(font(46, NSFontWeightSemibold), primary(), 0.5));
+	NSMutableArray *links = [NSMutableArray array];
+	void (^link)(WCLink, NSRect) = ^(WCLink kind, NSRect r) {
+		[links addObject:@[ @(kind), [NSValue valueWithRect:NSInsetRect(r, -8, -4)] ]];
+	};
+	CGFloat timeW =
+	    text(timeIn(NSTimeZone.localTimeZone, now), kPad - 2, 18, -1, attrs(font(46, NSFontWeightSemibold), primary(), 0.5));
 	NSDateFormatter *df = [NSDateFormatter new];
 	df.locale = [NSLocale localeWithLocaleIdentifier:@"en_GB"];
 	df.dateFormat = @"EEE d MMM yyyy";
 	NSString *city = str(d, @"city");
 	NSString *date = [df stringFromDate:now].uppercaseString;
-	text([NSString stringWithFormat:@"%@ · %@", city, date], kPad, 72, -1, attrs(font(17, NSFontWeightRegular), secondary(), 1));
+	CGFloat dateW = text([NSString stringWithFormat:@"%@ · %@", city, date], kPad, 72, -1,
+	                     attrs(font(17, NSFontWeightRegular), secondary(), 1));
+	link(WCLinkClock, NSMakeRect(kPad - 2, 20, MAX(timeW, dateW) + 2, 76));
 
 	NSString *temp = str(d, @"temp"), *range = str(d, @"range"), *icon = str(d, @"icon");
 	CGFloat right = kW - kPad;
-	if (temp.length) text(temp, right, 24, 1, attrs(font(32, NSFontWeightSemibold), primary(), 0));
+	CGFloat tempW = temp.length ? text(temp, right, 24, 1, attrs(font(32, NSFontWeightSemibold), primary(), 0)) : 0;
 	CGFloat rangeW = range.length ? text(range, right, 70, 1, attrs(font(17, NSFontWeightRegular), secondary(), 0)) : 0;
 	if (icon.length) {
 		NSImageSymbolConfiguration *cfg = [[NSImageSymbolConfiguration configurationWithPointSize:26 weight:NSFontWeightRegular]
@@ -109,10 +123,12 @@ static NSString *timeIn(NSTimeZone *tz, NSDate *now) {
 			[NSGraphicsContext saveGraphicsState];
 			[textShadow() set];
 			CGFloat iconRight = right - MAX(rangeW, 120) - 22;
+			link(WCLinkWeather, NSMakeRect(iconRight - img.size.width, 24, right - iconRight + img.size.width, 70));
 			[img drawInRect:NSMakeRect(iconRight - img.size.width, 44 - img.size.height / 2, img.size.width, img.size.height) fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
 			[NSGraphicsContext restoreGraphicsState];
 		}
 	}
+	if (temp.length && !icon.length) link(WCLinkWeather, NSMakeRect(right - MAX(tempW, rangeW), 24, MAX(tempW, rangeW), 70));
 	rule(106);
 
 	// ---- World clocks
@@ -127,6 +143,7 @@ static NSString *timeIn(NSTimeZone *tz, NSDate *now) {
 		text(timeIn([NSTimeZone timeZoneWithName:clocks[i][1]], now), cx, 152, 0,
 		     attrs(font(25, NSFontWeightSemibold), primary(), 0.5));
 	}
+	link(WCLinkClock, NSMakeRect(kPad, 126, kW - 2 * kPad, 58));
 	rule(205);
 
 	// ---- Month
@@ -181,8 +198,10 @@ static NSString *timeIn(NSTimeZone *tz, NSDate *now) {
 	// ---- Footer
 	text(str(d, @"status"), kPad, 494, -1, attrs(font(16, NSFontWeightRegular), secondary(), 0));
 	NSString *updated = str(d, @"updated");
-	text(updated.length ? [NSString stringWithFormat:@"Prices %@ · heat.sala.company", updated] : @"Loading prices…", mr, 494,
-	     1, attrs(font(16, NSFontWeightRegular), secondary(), 0));
+	CGFloat heatW =
+	    text(updated.length ? [NSString stringWithFormat:@"Prices %@ · heat.sala.company", updated] : @"Loading prices…", mr,
+	         494, 1, attrs(font(16, NSFontWeightRegular), secondary(), 0));
+	link(WCLinkHeat, NSMakeRect(mr - heatW, 494, heatW, 22));
 
 	// ---- The wallpaper on the desktop now: a picture icon, its title, then its credit, cut short with … to fit
 	NSString *picture = str(d, @"picture"), *credit = str(d, @"credit");
@@ -223,6 +242,81 @@ static NSString *timeIn(NSTimeZone *tz, NSDate *now) {
 			           options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingTruncatesLastVisibleLine
 			        attributes:ca];
 	}
+
+	if (![links isEqualToArray:self.links ?: @[]]) {
+		self.links = links;
+		dispatch_async(dispatch_get_main_queue(), ^{ updateLinkWindows(); }); // not while drawing
+	}
+}
+@end
+
+// ---- Click areas
+// The box itself lets every click through to the desktop. Each link gets its
+// own small, invisible window just above the desktop icons, so only those
+// spots catch the mouse (with a pointing hand and a soft highlight).
+
+static void openLink(WCLink kind) {
+	NSWorkspace *ws = NSWorkspace.sharedWorkspace;
+	NSURL *app = nil;
+	switch (kind) {
+	case WCLinkHeat:
+		[ws openURL:[NSURL URLWithString:@"https://heat.sala.company/"]];
+		return;
+	case WCLinkWeather:
+		app = [ws URLForApplicationWithBundleIdentifier:@"com.apple.weather"];
+		break;
+	case WCLinkClock:
+		app = [ws URLForApplicationWithBundleIdentifier:@"com.apple.clock"];
+		if (!app) { // no Clock app before macOS 14: Date & Time settings instead
+			[ws openURL:[NSURL URLWithString:@"x-apple.systempreferences:com.apple.Date-Time-Settings.extension"]];
+			return;
+		}
+		break;
+	}
+	if (app)
+		[ws openApplicationAtURL:app configuration:[NSWorkspaceOpenConfiguration configuration] completionHandler:nil];
+}
+
+@interface WCLinkView : NSView
+@property WCLink kind;
+@property BOOL hover, pressed;
+@end
+
+@implementation WCLinkView
+- (BOOL)acceptsFirstMouse:(NSEvent *)e { return YES; }
+- (void)drawRect:(NSRect)r {
+	// Nearly clear: the window must have some paint to catch clicks.
+	[[NSColor colorWithWhite:1 alpha:self.pressed ? 0.22 : self.hover ? 0.12 : 0.01] setFill];
+	[[NSBezierPath bezierPathWithRoundedRect:self.bounds xRadius:10 yRadius:10] fill];
+}
+- (void)updateTrackingAreas {
+	for (NSTrackingArea *t in self.trackingAreas) [self removeTrackingArea:t];
+	[self addTrackingArea:[[NSTrackingArea alloc]
+	                          initWithRect:NSZeroRect
+	                               options:NSTrackingMouseEnteredAndExited | NSTrackingActiveAlways | NSTrackingInVisibleRect
+	                                 owner:self
+	                              userInfo:nil]];
+	[super updateTrackingAreas];
+}
+- (void)mouseEntered:(NSEvent *)e {
+	self.hover = YES;
+	[NSCursor.pointingHandCursor set];
+	self.needsDisplay = YES;
+}
+- (void)mouseExited:(NSEvent *)e {
+	self.hover = self.pressed = NO;
+	[NSCursor.arrowCursor set];
+	self.needsDisplay = YES;
+}
+- (void)mouseDown:(NSEvent *)e {
+	self.pressed = YES;
+	self.needsDisplay = YES;
+}
+- (void)mouseUp:(NSEvent *)e {
+	BOOL inside = NSPointInRect([self convertPoint:e.locationInWindow fromView:nil], self.bounds);
+	self.pressed = NO;
+	self.needsDisplay = YES;
+	if (inside) openLink(self.kind);
 }
 @end
 
@@ -230,6 +324,42 @@ static NSWindow *gInfoWindow;
 static WCInfoView *gInfoView;
 static NSTimer *gInfoTimer;
 static id gScreenObserver, gWakeObserver;
+static NSMutableArray<NSPanel *> *gLinkWindows;
+
+static NSPanel *makeLinkWindow(void) {
+	NSPanel *p = [[NSPanel alloc] initWithContentRect:NSZeroRect
+	                                        styleMask:NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel
+	                                          backing:NSBackingStoreBuffered
+	                                            defer:YES];
+	p.releasedWhenClosed = NO;
+	p.opaque = NO;
+	p.backgroundColor = NSColor.clearColor;
+	p.hasShadow = NO;
+	p.level = CGWindowLevelForKey(kCGDesktopIconWindowLevelKey) + 1; // above Finder's desktop, below apps
+	p.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorStationary |
+	                       NSWindowCollectionBehaviorIgnoresCycle | NSWindowCollectionBehaviorFullScreenNone;
+	p.excludedFromWindowsMenu = YES;
+	p.hidesOnDeactivate = NO;
+	p.becomesKeyOnlyIfNeeded = YES;
+	p.contentView = [[WCLinkView alloc] initWithFrame:NSZeroRect];
+	return p;
+}
+
+// Puts one click window over each link drawn in the box (hides them with the box).
+static void updateLinkWindows(void) {
+	if (!gLinkWindows) gLinkWindows = [NSMutableArray array];
+	NSArray *links = gInfoWindow.visible ? gInfoView.links : @[];
+	for (NSUInteger i = 0; i < links.count; i++) {
+		if (i == gLinkWindows.count) [gLinkWindows addObject:makeLinkWindow()];
+		NSPanel *p = gLinkWindows[i];
+		NSRect inWindow = [gInfoView convertRect:[links[i][1] rectValue] toView:nil];
+		[p setFrame:[gInfoWindow convertRectToScreen:inWindow] display:NO];
+		((WCLinkView *)p.contentView).kind = [links[i][0] integerValue];
+		p.contentView.needsDisplay = YES;
+		[p orderFront:nil];
+	}
+	for (NSUInteger i = links.count; i < gLinkWindows.count; i++) [gLinkWindows[i] orderOut:nil];
+}
 
 static void placeInfoWindow(void) {
 	NSScreen *screen = NSScreen.screens.firstObject; // the display with the menu bar
@@ -240,6 +370,7 @@ static void placeInfoWindow(void) {
 	[gInfoWindow setFrame:r display:YES];
 	[gInfoView setBoundsSize:NSMakeSize(kW, kH)];
 	gInfoView.needsDisplay = YES;
+	updateLinkWindows(); // the box moved or changed size
 }
 
 // Redraws on each new minute so the clocks stay right.
@@ -295,6 +426,7 @@ void wcSetInfoBox(int on, const char *data) {
 			[gInfoTimer invalidate];
 			gInfoTimer = nil;
 			[gInfoWindow orderOut:nil];
+			updateLinkWindows();
 			return;
 		}
 		if (!gInfoWindow) makeInfoWindow();
@@ -304,6 +436,7 @@ void wcSetInfoBox(int on, const char *data) {
 			placeInfoWindow();
 			[gInfoWindow orderFront:nil];
 			scheduleTick();
+			updateLinkWindows();
 		}
 		gInfoView.needsDisplay = YES;
 	});
