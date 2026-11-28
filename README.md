@@ -63,8 +63,7 @@ of the main display, over every wallpaper: the time and weather where you are (f
 zone, via Open-Meteo), New York, London, Singapore and Tokyo times, this month, and the day's moves for
 BTC, XAUT, SPY, QQQ, DIA, XSD and AIQ from [heat.sala.company](https://heat.sala.company), and the title and credit of the picture on your desktop. The panel is
 a light, mostly see-through shade with solid, shadowed text, and sits below windows and desktop icons. Prices refresh every 10 minutes, the weather
-every 30. Click the time or world clocks to open Clock, the weather to open Weather, the month to open Smart Cal's drop-down (or
-Google Calendar in the browser if Smart Cal isn't installed), and "heat.sala.company" to open the site; the rest of the box lets clicks through to the desktop.
+every 30. Click the time or world clocks to open Clock, the weather to open Weather, and "heat.sala.company" to open the site; the rest of the box lets clicks through to the desktop.
 
 **Updates:** choose **Check for Updates…** from the Wallpaper Rotator menu, the menu-bar icon, or
 the Dock icon. It asks GitHub for the latest release and, if there's a newer one, can download it,
