@@ -61,7 +61,7 @@ across restarts and updates.
 **Info box:** choose **Show Info Box** in the menu-bar menu (or the checkbox in Settings → General) for a panel in the middle
 of the main display, over every wallpaper: the time and weather where you are (from your Mac's time
 zone, via Open-Meteo), New York, London, Singapore and Tokyo times, this month, and the day's moves for
-BTC, XAUT, SPY, QQQ, DIA, XSD and AIQ from [heat.sala.company](https://heat.sala.company). The panel is
+BTC, XAUT, SPY, QQQ, DIA, XSD and AIQ from [heat.sala.company](https://heat.sala.company), and the title and credit of the picture on your desktop. The panel is
 half see-through and sits below windows and desktop icons. Prices refresh every 10 minutes, the weather
 every 30.
 

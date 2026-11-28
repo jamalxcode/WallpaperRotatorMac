@@ -594,6 +594,9 @@ func creditLine(s Shown) string {
 // refreshStatus shows the current picture in the menu and window.
 func (a *App) refreshStatus(busy bool) {
 	cur := a.cur()
+	if !busy {
+		theInfoBox.setPicture(cur.Title, creditLine(cur)) // empty when there's no picture yet
+	}
 	if cur.ID == "" {
 		title := "No picture yet"
 		if r := a.autoPauseReason(); r != "" {

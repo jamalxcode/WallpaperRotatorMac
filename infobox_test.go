@@ -69,3 +69,11 @@ func TestDegAndWeatherCity(t *testing.T) {
 		}
 	}
 }
+
+func TestSetPicture(t *testing.T) {
+	b := newInfoBox() // off, so nothing is sent to the window
+	b.setPicture("Hubble Spins\n  a Web", "NASA")
+	if b.data.Picture != "Hubble Spins a Web" || b.data.Credit != "NASA" {
+		t.Fatalf("got %q / %q", b.data.Picture, b.data.Credit)
+	}
+}

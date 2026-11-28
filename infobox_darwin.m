@@ -8,7 +8,7 @@
 void wcInfoBoxChecked(int on); // settings_darwin.m
 
 // Everything is drawn in this design size and scaled to the window.
-static const CGFloat kW = 828, kH = 543, kPad = 28;
+static const CGFloat kW = 828, kH = 574, kPad = 28;
 // Share of the display's width the box takes, and the panel's opacity.
 static const CGFloat kScreenShare = 0.44, kPanelAlpha = 0.5;
 
@@ -180,6 +180,46 @@ static NSString *timeIn(NSTimeZone *tz, NSDate *now) {
 	NSString *updated = str(d, @"updated");
 	text(updated.length ? [NSString stringWithFormat:@"Prices %@ · heat.sala.company", updated] : @"Loading prices…", mr, 494,
 	     1, attrs(font(16, NSFontWeightRegular), secondary(), 0));
+
+	// ---- The wallpaper on the desktop now: a picture icon, its title, then its credit, cut short with … to fit
+	NSString *picture = str(d, @"picture"), *credit = str(d, @"credit");
+	if (picture.length || credit.length) {
+		CGFloat y = 526, x = kPad;
+		NSImageSymbolConfiguration *pcfg = [[NSImageSymbolConfiguration configurationWithPointSize:15 weight:NSFontWeightRegular]
+		    configurationByApplyingConfiguration:[NSImageSymbolConfiguration configurationWithPaletteColors:@[ secondary() ]]];
+		NSImage *pic = [[NSImage imageWithSystemSymbolName:@"photo" accessibilityDescription:nil] imageWithSymbolConfiguration:pcfg];
+		if (pic) {
+			[NSGraphicsContext saveGraphicsState];
+			[textShadow() set];
+			[pic drawInRect:NSMakeRect(x, y + 11 - pic.size.height / 2, pic.size.width, pic.size.height)
+			       fromRect:NSZeroRect
+			      operation:NSCompositingOperationSourceOver
+			       fraction:1
+			 respectFlipped:YES
+			          hints:nil];
+			[NSGraphicsContext restoreGraphicsState];
+			x += pic.size.width + 10;
+		}
+		NSMutableParagraphStyle *ps = [NSMutableParagraphStyle new];
+		ps.lineBreakMode = NSLineBreakByTruncatingTail;
+		NSMutableDictionary *ta = [attrs(font(16, NSFontWeightMedium), primary(), 0) mutableCopy];
+		ta[NSParagraphStyleAttributeName] = ps;
+		NSMutableDictionary *ca = [attrs(font(15, NSFontWeightRegular), secondary(), 0) mutableCopy];
+		ca[NSParagraphStyleAttributeName] = ps;
+		// The credit is always shown in full; a long title is the part cut short.
+		NSString *tail = credit.length ? [NSString stringWithFormat:@"%@%@", picture.length ? @"  ·  " : @"", credit] : @"";
+		CGFloat room = kW - kPad - x;
+		CGFloat tailW = MIN([tail sizeWithAttributes:ca].width, room * 0.6);
+		CGFloat titleW = MIN([picture sizeWithAttributes:ta].width, room - tailW);
+		if (picture.length)
+			[picture drawWithRect:NSMakeRect(x, y, titleW, 24)
+			              options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingTruncatesLastVisibleLine
+			           attributes:ta];
+		if (tail.length)
+			[tail drawWithRect:NSMakeRect(x + titleW, y + 1, room - titleW, 24)
+			           options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingTruncatesLastVisibleLine
+			        attributes:ca];
+	}
 }
 @end
 

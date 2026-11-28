@@ -52,6 +52,8 @@ type infoData struct {
 	Range   string       `json:"range"`
 	Icon    string       `json:"icon"` // SF Symbol name
 	Status  string       `json:"status"`
+	Picture string       `json:"picture"` // title of the wallpaper on the desktop now
+	Credit  string       `json:"credit"`
 	Updated string       `json:"updated"`
 	Markets []infoMarket `json:"markets"`
 }
@@ -91,6 +93,23 @@ func (b *infoBox) set(on bool) {
 	}
 	b.pushLocked()
 }
+
+// setPicture shows the current wallpaper's title and credit in the box.
+func (b *infoBox) setPicture(title, credit string) {
+	title, credit = oneLine(title), oneLine(credit)
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if title == b.data.Picture && credit == b.data.Credit {
+		return
+	}
+	b.data.Picture, b.data.Credit = title, credit
+	if b.on {
+		b.pushLocked()
+	}
+}
+
+// oneLine collapses line breaks and runs of spaces (some titles span lines).
+func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
 
 func (b *infoBox) pushLocked() {
 	b.data.City = strings.ToUpper(localCity())
