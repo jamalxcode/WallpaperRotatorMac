@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"log"
 	"math"
 	"net/url"
@@ -109,7 +110,8 @@ func (b *infoBox) setPicture(title, credit string) {
 }
 
 // oneLine collapses line breaks and runs of spaces (some titles span lines).
-func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
+// HTML codes like "&amp;" in titles saved by older versions are decoded too.
+func oneLine(s string) string { return strings.Join(strings.Fields(html.UnescapeString(s)), " ") }
 
 func (b *infoBox) pushLocked() {
 	b.data.City = strings.ToUpper(localCity())

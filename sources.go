@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"math/rand/v2"
 	"net/http"
 	"net/url"
@@ -61,7 +62,7 @@ func getJSON(ctx context.Context, u string, v any) error {
 var htmlTag = regexp.MustCompile(`<[^>]*>`)
 
 func stripHTML(s string) string {
-	s = htmlTag.ReplaceAllString(s, "")
+	s = html.UnescapeString(htmlTag.ReplaceAllString(s, "")) // "&amp;" → "&"
 	return strings.Join(strings.Fields(s), " ")
 }
 

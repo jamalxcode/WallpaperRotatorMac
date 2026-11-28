@@ -82,7 +82,9 @@ General) for a panel in the middle of the main display, over every wallpaper:
 
 The panel is a light, mostly see-through shade with solid, shadowed text. It sits below windows and
 desktop icons, and lets clicks through to the desktop except on its links: the time or world clocks
-open **Clock**, the weather opens **Weather**, and "heat.sala.company" opens the site. Like the
+open **Clock**, the weather opens **Weather**, the large 📺 and 📻 between them open
+[video.sala.company](https://video.sala.company/) and [radio.sala.company](https://radio.sala.company/),
+and "heat.sala.company" opens the site. Like the
 pictures, it downloads nothing while the screen is locked, or on Low Power Mode or a phone hotspot
 unless you've turned that pause off.
 

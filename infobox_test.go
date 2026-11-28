@@ -77,3 +77,12 @@ func TestSetPicture(t *testing.T) {
 		t.Fatalf("got %q / %q", b.data.Picture, b.data.Credit)
 	}
 }
+
+func TestOneLineDecodes(t *testing.T) {
+	if got := oneLine("Romanet &amp; Cie,\n imp."); got != "Romanet & Cie, imp." {
+		t.Errorf("got %q", got)
+	}
+	if got := stripHTML("<a href=x>A &amp; B</a>"); got != "A & B" {
+		t.Errorf("stripHTML got %q", got)
+	}
+}

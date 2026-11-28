@@ -13,7 +13,7 @@ static const CGFloat kW = 828, kH = 574, kPad = 28;
 static const CGFloat kScreenShare = 0.44, kPanelAlpha = 0.22;
 
 // Parts of the box that open something when clicked.
-typedef NS_ENUM(NSInteger, WCLink) { WCLinkClock, WCLinkWeather, WCLinkHeat };
+typedef NS_ENUM(NSInteger, WCLink) { WCLinkClock, WCLinkWeather, WCLinkHeat, WCLinkVideo, WCLinkRadio };
 
 @interface WCInfoView : NSView
 @property(copy) NSDictionary *data;
@@ -108,6 +108,17 @@ static NSString *timeIn(NSTimeZone *tz, NSDate *now) {
 	CGFloat dateW = text([NSString stringWithFormat:@"%@ · %@", city, date], kPad, 72, -1,
 	                     attrs(font(17, NSFontWeightRegular), secondary(), 1));
 	link(WCLinkClock, NSMakeRect(kPad - 2, 20, MAX(timeW, dateW) + 2, 76));
+
+	// ---- Large TV and radio, centred between the time and the weather: video.sala.company, radio.sala.company
+	NSDictionary *emoji = attrs([NSFont systemFontOfSize:46], primary(), 0);
+	NSArray *media = @[ @[ @"📺", @(WCLinkVideo) ], @[ @"📻", @(WCLinkRadio) ] ];
+	for (NSUInteger i = 0; i < media.count; i++) {
+		NSString *e = media[i][0];
+		NSSize sz = [e sizeWithAttributes:emoji];
+		CGFloat cx = kW / 2 + (i == 0 ? -46 : 46);
+		text(e, cx, 26, 0, emoji);
+		link([media[i][1] integerValue], NSMakeRect(cx - sz.width / 2, 26, sz.width, sz.height));
+	}
 
 	NSString *temp = str(d, @"temp"), *range = str(d, @"range"), *icon = str(d, @"icon");
 	CGFloat right = kW - kPad;
@@ -259,6 +270,12 @@ static void openLink(WCLink kind) {
 	NSWorkspace *ws = NSWorkspace.sharedWorkspace;
 	NSURL *app = nil;
 	switch (kind) {
+	case WCLinkVideo:
+		[ws openURL:[NSURL URLWithString:@"https://video.sala.company/"]];
+		return;
+	case WCLinkRadio:
+		[ws openURL:[NSURL URLWithString:@"https://radio.sala.company/"]];
+		return;
 	case WCLinkHeat:
 		[ws openURL:[NSURL URLWithString:@"https://heat.sala.company/"]];
 		return;
