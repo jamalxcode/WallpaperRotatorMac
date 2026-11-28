@@ -55,10 +55,10 @@ The menu-bar icon has the same main actions. Its **Recent Wallpapers** grid show
 to open it, with the others, in Preview, or ⌥-click it to put it back on your desktop.
 
 **Keep Screen On** in the menu-bar menu stops the display and the Mac from sleeping (it runs macOS's
-`caffeinate`). The item reads **☕ Keep Screen On — On** or **Keep Screen On — Off**, a ☕ shows
-next to the menu-bar icon while it's on, and it's remembered across restarts and updates.
+`caffeinate`). A checkmark shows it's on, a ☕ shows next to the menu-bar icon, and it's remembered
+across restarts and updates.
 
-**Info box:** turn on **Show the info box on the desktop** in the General tab for a panel in the middle
+**Info box:** choose **Show Info Box** in the menu-bar menu (or the checkbox in Settings → General) for a panel in the middle
 of the main display, over every wallpaper: the time and weather where you are (from your Mac's time
 zone, via Open-Meteo), New York, London, Singapore and Tokyo times, this month, and the day's moves for
 BTC, XAUT, SPY, QQQ, DIA, XSD and AIQ from [heat.sala.company](https://heat.sala.company). The panel is

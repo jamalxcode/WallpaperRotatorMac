@@ -11,9 +11,9 @@ const siteURL = "https://go.sala.company"
 // Menu is the menu-bar icon's menu. It only displays state and forwards
 // clicks to App; App.syncUI / refreshStatus keep it current.
 type Menu struct {
-	info, credit, next, prev, ban, pause, open, save, login, awake *systray.MenuItem
-	intervals                                                      map[int]*systray.MenuItem
-	sources                                                        map[string]*systray.MenuItem
+	info, credit, next, prev, ban, pause, open, save, login, awake, infoBox *systray.MenuItem
+	intervals                                                               map[int]*systray.MenuItem
+	sources                                                                 map[string]*systray.MenuItem
 }
 
 func quitApp() { systray.Quit() }
@@ -30,22 +30,29 @@ func buildMenu(a *App) *Menu {
 	title.SetIcon(icon)
 	site := systray.AddMenuItem("from go.sala.company", "Open "+siteURL)
 	systray.AddSeparator()
+
+	// The picture on the desktop now, and what you can do with it.
 	m.info = systray.AddMenuItem("Starting…", "")
 	m.info.Disable()
 	m.credit = systray.AddMenuItem("", "")
 	m.credit.Disable()
+	m.open = systray.AddMenuItem("Open Image Page", "See the source and license")
+	m.save = systray.AddMenuItem("Save to Pictures", "Copy to ~/Pictures/Wallpapers")
 	systray.AddSeparator()
-	// The picture grid is inserted right below this label (recentMenuTitle).
-	recentLabel := systray.AddMenuItem(recentMenuTitle, "Click to open in Preview, ⌥-click to use as wallpaper")
-	recentLabel.Disable()
-	systray.AddSeparator()
+
+	// Moving through pictures.
 	m.next = systray.AddMenuItem("Next Wallpaper", "Change now")
 	m.prev = systray.AddMenuItem("Previous Wallpaper", "Go back to the last one")
 	m.ban = systray.AddMenuItem("Never Show This Again", "Hide this picture forever and move on")
 	m.pause = systray.AddMenuItem("Pause", "Stop changing automatically")
-	m.open = systray.AddMenuItem("Open Image Page", "See the source and license")
-	m.save = systray.AddMenuItem("Save to Pictures", "Copy to ~/Pictures/Wallpapers")
 	systray.AddSeparator()
+
+	// The picture grid is inserted right below this label (recentMenuTitle).
+	recentLabel := systray.AddMenuItem(recentMenuTitle, "Click to open in Preview, ⌥-click to use as wallpaper")
+	recentLabel.Disable()
+	systray.AddSeparator()
+
+	// What gets picked and how often.
 	every := systray.AddMenuItem("Change Every", "")
 	for _, min := range intervals {
 		m.intervals[min] = every.AddSubMenuItemCheckbox(intervalLabel(min), "", false)
@@ -54,8 +61,15 @@ func buildMenu(a *App) *Menu {
 	for _, s := range a.sources {
 		m.sources[s.Name()] = src.AddSubMenuItemCheckbox(sourceLabels[s.Name()], "", false)
 	}
-	m.awake = systray.AddMenuItemCheckbox("Keep Screen On — Off", "Don't let the display or the Mac sleep (caffeinate)", false)
+	systray.AddSeparator()
+
+	// On/off options (a checkmark shows which are on).
+	m.infoBox = systray.AddMenuItemCheckbox("Show Info Box", "Clock, weather and markets in the middle of the desktop", false)
+	m.awake = systray.AddMenuItemCheckbox("Keep Screen On", "Don't let the display or the Mac sleep (caffeinate)", false)
 	m.login = systray.AddMenuItemCheckbox("Start at Login", "", false)
+	systray.AddSeparator()
+
+	// The app itself.
 	show := systray.AddMenuItem("Show Wallpaper Rotator", "Open the window with the current picture")
 	settings := systray.AddMenuItem("Settings…", "Sources, DeviantArt and general options")
 	updates := systray.AddMenuItem("Check for Updates…", "See if a newer version is on GitHub")
@@ -113,6 +127,11 @@ func buildMenu(a *App) *Menu {
 				on := !a.cfg.KeepAwake
 				a.mu.Unlock()
 				go a.SetKeepAwake(on)
+			case <-m.infoBox.ClickedCh:
+				a.mu.Lock()
+				on := !a.cfg.InfoBox
+				a.mu.Unlock()
+				go a.SetInfoBox(on)
 			case <-m.login.ClickedCh:
 				go a.SetLogin(loginStatus() != LoginOn)
 			case <-show.ClickedCh:
@@ -155,11 +174,10 @@ func (m *Menu) sync(cfg Config, sources []Source, login LoginStatus, pauseReason
 	}
 	check(m.login, login == LoginOn)
 	check(m.awake, cfg.KeepAwake)
+	check(m.infoBox, cfg.InfoBox)
 	if cfg.KeepAwake {
-		m.awake.SetTitle("☕ Keep Screen On — On")
 		systray.SetTitle("☕") // shown next to the icon while the screen is kept on
 	} else {
-		m.awake.SetTitle("Keep Screen On — Off")
 		systray.SetTitle("")
 	}
 	if cfg.Paused {
@@ -180,6 +198,11 @@ func (m *Menu) sync(cfg Config, sources []Source, login LoginStatus, pauseReason
 func (m *Menu) status(title, credit string, busy, hasImage, canBack bool) {
 	m.info.SetTitle(trunc(title, 55))
 	m.credit.SetTitle(trunc(credit, 55))
+	if credit == "" {
+		m.credit.Hide() // no empty row
+	} else {
+		m.credit.Show()
+	}
 	enable(m.next, !busy)
 	enable(m.prev, !busy && canBack)
 	enable(m.ban, !busy && hasImage)
