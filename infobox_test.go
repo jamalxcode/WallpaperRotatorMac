@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -55,5 +56,16 @@ func TestWeatherText(t *testing.T) {
 	}
 	if s, i := weatherText(2, false, 20000); s != "Partly cloudy" || i != "cloud.moon" {
 		t.Errorf("night: %s %s", s, i)
+	}
+}
+
+func TestDegAndWeatherCity(t *testing.T) {
+	if got := fmt.Sprintf("%.0f", deg(-0.3)); got != "0" {
+		t.Errorf("deg(-0.3) printed %q", got)
+	}
+	for tz, want := range map[string]bool{"Asia/Kuwait": true, "Etc/UTC": false, "UTC": false, "": false} {
+		if hasWeatherCity(tz) != want {
+			t.Errorf("hasWeatherCity(%q) != %v", tz, want)
+		}
 	}
 }

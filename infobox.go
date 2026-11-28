@@ -63,7 +63,7 @@ type infoBox struct {
 	data    infoData
 	lat     float64
 	lon     float64
-	located bool
+	located string // the city lat/lon were found for
 }
 
 var theInfoBox = newInfoBox()
@@ -105,14 +105,17 @@ func (b *infoBox) loop(stop chan struct{}) {
 	defer tick.Stop()
 	for {
 		now := time.Now()
-		if now.Sub(lastPrices) >= infoPriceEvery {
+		if infoOnHold() {
+			// Locked, display asleep, Low Power Mode or a hotspot: no downloads;
+			// catch up when that ends. The clocks keep going.
+		} else if now.Sub(lastPrices) >= infoPriceEvery {
 			if b.refreshPrices() {
 				lastPrices = now
 			} else {
 				lastPrices = now.Add(-infoPriceEvery + 2*time.Minute) // try again soon
 			}
 		}
-		if now.Sub(lastWeather) >= infoWeatherEvery {
+		if !infoOnHold() && now.Sub(lastWeather) >= infoWeatherEvery {
 			if b.refreshWeather() {
 				lastWeather = now
 			} else {
@@ -132,9 +135,21 @@ func (b *infoBox) loop(stop chan struct{}) {
 	}
 }
 
+// infoOnHold is true while the app holds off downloads (see autoPauseReason).
+// Pausing wallpaper changes by hand doesn't stop the box.
+func infoOnHold() bool {
+	a := theApp
+	if a == nil {
+		return false
+	}
+	r := a.autoPauseReason()
+	return r != "" && r != "Paused"
+}
+
 // heatFile is the part of heat's data files the box needs.
 type heatFile struct {
-	Markets []struct {
+	Generated int64 `json:"generated"` // ms since 1970
+	Markets   []struct {
 		Symbol string   `json:"symbol"`
 		Price  *float64 `json:"current_price"`
 		Chg    *float64 `json:"price_change_percentage_24h_in_currency"`
@@ -158,6 +173,12 @@ func (b *infoBox) refreshPrices() bool {
 		files[s.File] = &f
 	}
 	markets, ok := pickMarkets(files)
+	var built int64 // the older of the files, so the time never flatters stale data
+	for _, f := range files {
+		if f != nil && f.Generated > 0 && (built == 0 || f.Generated < built) {
+			built = f.Generated
+		}
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if ok == 0 {
@@ -170,7 +191,11 @@ func (b *infoBox) refreshPrices() bool {
 		}
 	}
 	b.data.Markets = markets
-	b.data.Updated = time.Now().Format("15:04")
+	if built > 0 {
+		b.data.Updated = time.UnixMilli(built).Format("15:04")
+	} else {
+		b.data.Updated = time.Now().Format("15:04")
+	}
 	return ok == len(infoSymbols)
 }
 
@@ -231,6 +256,11 @@ func localTZ() string {
 	return ""
 }
 
+// hasWeatherCity is false for zones like Etc/UTC that aren't a place.
+func hasWeatherCity(tz string) bool {
+	return tz != "" && !strings.HasPrefix(tz, "Etc/") && strings.Contains(tz, "/")
+}
+
 // localCity is the city part of the time zone, e.g. "Kuwait" or "New York".
 func localCity() string {
 	tz := localTZ()
@@ -246,8 +276,14 @@ func (b *infoBox) refreshWeather() bool {
 	b.mu.Lock()
 	located, lat, lon := b.located, b.lat, b.lon
 	b.mu.Unlock()
-	if !located {
-		city := localCity()
+	city := localCity()
+	if !hasWeatherCity(localTZ()) {
+		b.mu.Lock()
+		b.data.Temp, b.data.Range, b.data.Icon = "", "", ""
+		b.mu.Unlock()
+		return true
+	}
+	if located != city {
 		var g struct {
 			Results []struct {
 				Latitude    float64 `json:"latitude"`
@@ -268,7 +304,7 @@ func (b *infoBox) refreshWeather() bool {
 		}
 		lat, lon = r.Latitude, r.Longitude
 		b.mu.Lock()
-		b.lat, b.lon, b.located = lat, lon, true
+		b.lat, b.lon, b.located = lat, lon, city
 		b.mu.Unlock()
 	}
 	var w struct {
@@ -293,13 +329,22 @@ func (b *infoBox) refreshWeather() bool {
 	text, icon := weatherText(w.Current.Code, w.Current.IsDay != 0, w.Current.Visibility)
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.data.Temp = fmt.Sprintf("%.0f°C", math.Round(w.Current.Temp))
+	b.data.Temp = fmt.Sprintf("%.0f°C", deg(w.Current.Temp))
 	b.data.Range = text
 	if len(w.Daily.Max) > 0 && len(w.Daily.Min) > 0 {
-		b.data.Range = fmt.Sprintf("%.0f° / %.0f° · %s", math.Round(w.Daily.Min[0]), math.Round(w.Daily.Max[0]), text)
+		b.data.Range = fmt.Sprintf("%.0f° / %.0f° · %s", deg(w.Daily.Min[0]), deg(w.Daily.Max[0]), text)
 	}
 	b.data.Icon = icon
 	return true
+}
+
+// deg rounds a temperature, never giving "-0".
+func deg(t float64) float64 {
+	r := math.Round(t)
+	if r == 0 {
+		return 0
+	}
+	return r
 }
 
 // weatherText turns a WMO weather code into words and an SF Symbol.

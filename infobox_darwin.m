@@ -26,8 +26,25 @@ static NSColor *downColor(void) { return [NSColor colorWithSRGBRed:0.96 green:0.
 
 static NSFont *font(CGFloat size, NSFontWeight w) { return [NSFont monospacedDigitSystemFontOfSize:size weight:w]; }
 
+// A soft dark shadow under every character so text stands out on bright or busy wallpapers.
+static NSShadow *textShadow(void) {
+	static NSShadow *s;
+	if (!s) {
+		s = [NSShadow new];
+		s.shadowColor = [NSColor colorWithWhite:0 alpha:0.85];
+		s.shadowOffset = NSMakeSize(0, -1.5); // down (shadow offsets ignore the flipped view)
+		s.shadowBlurRadius = 3;
+	}
+	return s;
+}
+
 static NSDictionary *attrs(NSFont *f, NSColor *c, CGFloat kern) {
-	return @{NSFontAttributeName : f, NSForegroundColorAttributeName : c, NSKernAttributeName : @(kern)};
+	return @{
+		NSFontAttributeName : f,
+		NSForegroundColorAttributeName : c,
+		NSKernAttributeName : @(kern),
+		NSShadowAttributeName : textShadow()
+	};
 }
 
 // Draws s with its top at y; align -1 left of x, 0 centred on x, 1 right of x. Returns its width.
@@ -86,8 +103,11 @@ static NSString *timeIn(NSTimeZone *tz, NSDate *now) {
 		    ]]];
 		NSImage *img = [[NSImage imageWithSystemSymbolName:icon accessibilityDescription:nil] imageWithSymbolConfiguration:cfg];
 		if (img) {
+			[NSGraphicsContext saveGraphicsState];
+			[textShadow() set];
 			CGFloat iconRight = right - MAX(rangeW, 120) - 22;
 			[img drawInRect:NSMakeRect(iconRight - img.size.width, 44 - img.size.height / 2, img.size.width, img.size.height) fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1 respectFlipped:YES hints:nil];
+			[NSGraphicsContext restoreGraphicsState];
 		}
 	}
 	rule(106);
@@ -150,8 +170,8 @@ static NSString *timeIn(NSTimeZone *tz, NSDate *now) {
 		double chg = [m[@"chg"] doubleValue];
 		BOOL up = chg >= 0;
 		NSString *pct = [NSString stringWithFormat:@"%@ %@%.2f%%", up ? @"▲" : @"▼", up ? @"+" : @"−", fabs(chg)];
-		text(pct, mr, y, 1, attrs(font(17, NSFontWeightRegular), up ? upColor() : downColor(), 0));
-		text(str(m, @"price"), mr - 112, y + 1, 1, attrs(font(15, NSFontWeightRegular), secondary(), 0));
+		CGFloat pctW = text(pct, mr, y, 1, attrs(font(17, NSFontWeightRegular), up ? upColor() : downColor(), 0));
+		text(str(m, @"price"), mr - MAX(112, pctW + 16), y + 1, 1, attrs(font(15, NSFontWeightRegular), secondary(), 0));
 	}
 	rule(478);
 
